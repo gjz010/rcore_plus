@@ -11,3 +11,7 @@ Cargo.lock
 
 # for eclipse
 .project
+
+# idea
+kernel.iml
+.idea
