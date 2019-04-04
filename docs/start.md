@@ -12,10 +12,8 @@ cargo install cargo-xbuild bootimage
 
 other toolchain
 ```bash
-wget https://download.qemu.org/qemu-3.1.0.tar.xz && tar xvJf qemu-3.1.0.tar.xz
-cd qemu-3.1.0 && ./configure --target-list=aarch64-softmmu && make && cd ..
-# 配置环境变量，修改bashrc,添加一行
-# export PATH=$地址/qemu-3.1.0/aarch64-softmmu:$地址/qemu-3.1.0:$PATH
+# qemu
+# refer to https://askubuntu.com/questions/1067722/how-do-i-install-qemu-3-0-on-ubuntu-18-04
 
 export FILE="gcc-arm-8.2-2018.11-x86_64-aarch64-elf"; wget https://developer.arm.com/-/media/Files/downloads/gnu-a/8.2-2018.11/$FILE.tar.xz; tar -xvf $FILE.tar.xz; export PATH=$PATH:$PWD/$FILE/bin; wget https://musl.cc/aarch64-linux-musl-cross.tgz; tar -xvf aarch64-linux-musl-cross.tgz; export PATH=$PATH:$PWD/aarch64-linux-musl-cross/bin;
 # 配置环境变量，把刚才两个bin加进去
