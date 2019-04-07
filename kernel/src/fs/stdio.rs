@@ -38,9 +38,14 @@ impl Stdin {
 #[derive(Default)]
 pub struct Stdout;
 
+#[derive(Default)]
+pub struct Audio;
+
+
 lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
     pub static ref STDOUT: Arc<Stdout> = Arc::new(Stdout::default());
+    pub static ref AUDIO: Arc<Audio> = Arc::new(Audio::default());
 }
 
 // TODO: better way to provide default impl?
@@ -74,6 +79,20 @@ impl INode for Stdin {
 }
 
 impl INode for Stdout {
+    fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize> {
+        unimplemented!()
+    }
+    fn write_at(&self, _offset: usize, buf: &[u8]) -> Result<usize> {
+        use core::str;
+        //we do not care the utf-8 things, we just want to print it!
+        let s = unsafe { str::from_utf8_unchecked(buf) };
+        print!("{}", s);
+        Ok(buf.len())
+    }
+    impl_inode!();
+}
+
+impl INode for Audio {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize> {
         unimplemented!()
     }

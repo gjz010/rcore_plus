@@ -283,6 +283,17 @@ impl Thread {
                 },
             )),
         );
+        files.insert(
+            3,
+            FileLike::File(FileHandle::new(
+                crate::fs::AUDIO.clone(),
+                OpenOptions {
+                    read: false,
+                    write: true,
+                    append: false,
+                },
+            )),
+        );
 
         let entry_addr = elf.header.pt2.entry_point() as usize;
 
