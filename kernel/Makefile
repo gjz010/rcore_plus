@@ -55,6 +55,7 @@ export SFSIMG = $(user_dir)/build/$(arch).qcow2
 ifeq ($(arch), aarch64)
 board := raspi3
 export SFSIMG = $(user_dir)/build/$(arch).img
+export BLANKIMG = $(user_dir)/blank/blank.img
 endif
 
 ### qemu options ###

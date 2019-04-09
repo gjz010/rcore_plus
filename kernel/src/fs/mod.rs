@@ -29,6 +29,11 @@ _user_img_start:
     env!("SFSIMG"),
     r#""
 _user_img_end:
+_blank_img_start:
+    .incbin ""#,
+    env!("BLANKIMG"),
+    r#""
+_blank_img_end:
 "#
 ));
 
@@ -53,8 +58,11 @@ lazy_static! {
             extern {
                 fn _user_img_start();
                 fn _user_img_end();
+                fn _blank_img_start();
+                fn _blank_img_end();
             }
-            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _user_img_end) })
+            // Arc::new(unsafe { device::MemBuf::new(_user_img_start, _user_img_end) })
+            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _blank_img_end) })
         };
 
         let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
