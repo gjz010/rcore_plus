@@ -53,8 +53,8 @@ rcore-memory = { path = "../crate/memory" }
 rcore-thread = { path = "../crate/thread" }
 # rcore-fs = { git = "https://github.com/gaotianyu1350/rcore-fs" }
 # rcore-fs-sfs = { git = "https://github.com/gaotianyu1350/rcore-fs" }
-rcore-fs = { path = "../../rcore-fs" }
-rcore-fs-sfs = { path = "../../rcore-fs" }
+rcore-fs = { path = "../../rcore-fs/rcore-fs" }
+rcore-fs-sfs = { path = "../../rcore-fs/rcore-fs-sfs" }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 bootloader = { git = "https://github.com/rcore-os/bootloader" }

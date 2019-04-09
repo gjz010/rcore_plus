@@ -24,6 +24,8 @@ global_asm!(concat!(
 	.section .data
 	.global _user_img_start
 	.global _user_img_end
+        .global _blank_img_start
+        .global _blank_img_end
 _user_img_start:
     .incbin ""#,
     env!("SFSIMG"),
