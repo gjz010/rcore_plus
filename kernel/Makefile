@@ -192,6 +192,9 @@ runtest: build justruntest
 justrun:
 	@qemu-system-$(arch) $(qemu_opts)
 
+justruns:
+	@qemu-system-$(arch) -s -S $(qemu_opts)
+
 justrunnet: build
 	@sudo qemu-system-$(arch) $(qemu_opts) $(qemu_net_opts)
 
