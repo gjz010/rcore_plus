@@ -68,7 +68,10 @@ lazy_static! {
         };
 
         let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
-        sfs.root_inode()
+        // sfs.root_inode()
+        let root = sfs.root_inode();
+        root.create("dev", vfs::FileType::Dir, 0).expect("fail to create dev");
+        root
     };
 }
 
