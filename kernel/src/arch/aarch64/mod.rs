@@ -15,6 +15,8 @@ pub mod timer;
 #[path = "board/raspi3/mod.rs"]
 pub mod board;
 
+use super::fs;
+
 global_asm!(include_str!("boot/entry.S"));
 
 /// The entry point of kernel
@@ -26,6 +28,7 @@ pub extern "C" fn rust_main() -> ! {
     interrupt::init();
     memory::init();
     driver::init();
+    fs::init();
     println!("{}", LOGO);
 
     crate::process::init();

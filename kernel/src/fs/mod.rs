@@ -2,6 +2,7 @@ use alloc::{sync::Arc, vec::Vec};
 
 use rcore_fs::vfs::*;
 use rcore_fs_sfs::SimpleFileSystem;
+use rcore_fs_sfs::INodeImpl;
 
 #[cfg(target_arch = "x86_64")]
 use crate::arch::driver::ide;
@@ -41,6 +42,8 @@ _blank_img_end:
 
 lazy_static! {
     /// The root of file system
+    pub static ref DEV;
+
     pub static ref ROOT_INODE: Arc<INode> = {
         #[cfg(not(feature = "link_user"))]
         let device = {
@@ -68,9 +71,10 @@ lazy_static! {
         };
 
         let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
-        // sfs.root_inode()
+
+        // init dev
         let root = sfs.root_inode();
-        root.create("dev", FileType::Dir, 0).expect("fail to create dev");
+        DEV = root.create("dev", FileType::Dir, 0).expect("fail to create dev");
         root
     };
 }
@@ -91,4 +95,8 @@ impl INodeExt for INode {
         self.read_at(0, buf.as_mut_slice())?;
         Ok(buf)
     }
+}
+
+pub fn init() {
+
 }
