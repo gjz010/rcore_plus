@@ -15,3 +15,5 @@ Cargo.lock
 # idea
 kernel.iml
 .idea
+
+.swp
