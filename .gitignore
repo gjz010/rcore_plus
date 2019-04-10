@@ -16,4 +16,4 @@ Cargo.lock
 kernel.iml
 .idea
 
-.swp
+*.swp
