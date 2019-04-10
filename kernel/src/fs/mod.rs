@@ -42,7 +42,7 @@ _blank_img_end:
 
 lazy_static! {
     /// The root of file system
-    pub static ref DEV;
+    // pub static ref DEV;
 
     pub static ref ROOT_INODE: Arc<INode> = {
         #[cfg(not(feature = "link_user"))]
@@ -74,7 +74,7 @@ lazy_static! {
 
         // init dev
         let root = sfs.root_inode();
-        DEV = root.create("dev", FileType::Dir, 0).expect("fail to create dev");
+        root.create("dev", FileType::Dir, 0).expect("fail to create dev");
         root
     };
 }
