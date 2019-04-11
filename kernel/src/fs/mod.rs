@@ -10,7 +10,7 @@ use crate::arch::driver::ide;
 pub use self::file::*;
 pub use self::file_like::*;
 pub use self::pipe::Pipe;
-pub use self::stdio::{STDIN, STDOUT, AUDIO};
+pub use self::stdio::*;
 
 mod device;
 mod file;
@@ -100,4 +100,11 @@ impl INodeExt for INode {
 
 pub fn init() {
     let dev_inode = ROOT_INODE.create("dev", FileType::Dir, 0).expect("fail to create dev");
+    SFS.new_device_inode(STDIN_ID, STDIN.clone());
+    SFS.new_device_inode(STDOUT_ID, STDOUT.clone());
+    //SFS.new_device_inode(STDIN_ID, STDIN.clone());
+
+    let stdout_inode = SFS.new_inode_chardevice(STDOUT_ID).unwrap();
+    let dev_inode_impl = dev_inode.downcast_ref::<INodeImpl>().unwrap();
+    dev_inode_impl.link_inodeimpl("stdout", &stdout_inode);
 }

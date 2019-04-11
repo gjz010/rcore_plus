@@ -41,6 +41,9 @@ pub struct Stdout;
 #[derive(Default)]
 pub struct Audio;
 
+pub const STDIN_ID: usize = 0;
+pub const STDOUT_ID: usize = 1;
+pub const STDERR_ID: usize = 2;
 
 lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
