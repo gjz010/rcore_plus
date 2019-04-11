@@ -44,8 +44,8 @@ lazy_static! {
     /// The root of file system
     // pub static ref DEV;
 
-    pub static ref ROOT_INODE: Arc<INode> = {
-        #[cfg(not(feature = "link_user"))]
+    pub static ref SFS: Arc<SimpleFileSystem> = {
+           #[cfg(not(feature = "link_user"))]
         let device = {
             #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
             {
@@ -71,10 +71,11 @@ lazy_static! {
         };
 
         let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
+        sfs
+    };
 
-        // init dev
-        let root = sfs.root_inode();
-        root.create("dev", FileType::Dir, 0).expect("fail to create dev");
+    pub static ref ROOT_INODE: Arc<INode> = {
+        let root = SFS.root_inode();
         root
     };
 }
@@ -98,5 +99,5 @@ impl INodeExt for INode {
 }
 
 pub fn init() {
-
+    let dev_inode = ROOT_INODE.create("dev", FileType::Dir, 0).expect("fail to create dev");
 }
