@@ -2,6 +2,7 @@
 
 use alloc::{collections::vec_deque::VecDeque, string::String, sync::Arc};
 use core::any::Any;
+use spin::RwLock;
 
 use rcore_fs::vfs;
 use rcore_fs_sfs::*;
@@ -45,14 +46,29 @@ pub struct Stdout;
 #[derive(Default)]
 pub struct Audio;
 
+#[derive(Default)]
+pub struct GPIOOutput {
+    pin: RwLock<u8>
+}
+
+impl GPIOOutput {
+    fn new(init_pin: u8) -> Self {
+        GPIOOutput {
+            pin: RwLock::new(init_pin)
+        }
+    }
+}
+
 pub const STDIN_ID: usize = 0;
 pub const STDOUT_ID: usize = 1;
 pub const STDERR_ID: usize = 2;
+pub const GPIO_ID: usize = 3;
 
 lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
     pub static ref STDOUT: Arc<Stdout> = Arc::new(Stdout::default());
     pub static ref AUDIO: Arc<Audio> = Arc::new(Audio::default());
+    pub static ref GPIO: Arc<GPIOOutput> = Arc::new(GPIOOutput::new(0));
 }
 
 // TODO: better way to provide default impl?
@@ -71,7 +87,6 @@ macro_rules! impl_inode {
         fn fs(&self) -> Arc<FileSystem> { unimplemented!() }
         fn as_any_ref(&self) -> &Any { self }
         fn chmod(&self, _mode: u16) -> vfs::Result<()> { Ok(()) }
-        fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
     };
 }
 
@@ -83,6 +98,7 @@ impl INode for Stdin {
     fn write_at(&self, _offset: usize, _buf: &[u8]) -> vfs::Result<usize> {
         unimplemented!()
     }
+    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
     impl_inode!();
 }
 
@@ -98,6 +114,7 @@ impl INode for Stdout {
         print!("{}", s);
         Ok(buf.len())
     }
+    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
     impl_inode!();
 }
 
@@ -114,6 +131,30 @@ impl INode for Audio {
         my_gpio.set();
         print!("{}", s);
         Ok(buf.len())
+    }
+    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
+    impl_inode!();
+}
+
+
+impl INode for GPIOOutput {
+    fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> vfs::Result<usize> {
+        unimplemented!()
+    }
+    fn write_at(&self, _offset: usize, buf: &[u8]) -> vfs::Result<usize> {
+        use core::str;
+        let mut my_gpio = gpio::Gpio::<gpio::Uninitialized>::new(*self.pin.read()).into_output();
+        my_gpio.set();
+        Ok(0)
+    }
+    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> {
+        if (request > 53) {
+            warn!("pin id > 53!");
+            return Err(vfs::IOCTLError::NotValidParam);
+        }
+        let mut pin = self.pin.write();
+        *pin = request as u8;
+        Ok(())
     }
     impl_inode!();
 }
