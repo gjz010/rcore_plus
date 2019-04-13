@@ -1,6 +1,7 @@
 use core::fmt;
 
 use rcore_fs::vfs;
+use rcore_fs::vfs::IOCTLError;
 use rcore_fs_sfs::*;
 use super::FileHandle;
 

@@ -3,6 +3,7 @@
 use alloc::{string::String, sync::Arc};
 use rcore_fs_sfs::*;
 use rcore_fs::vfs;
+use rcore_fs::vfs::IOCTLError;
 use rcore_fs::vfs::{FsError, INode, Metadata};
 
 #[derive(Clone)]
@@ -111,8 +112,7 @@ impl FileHandle {
     }
 
     pub fn call_ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
-        let inode_impl = self.inode.downcast_ref::<INodeImpl>().unwrap();
-        inode_impl.call_ioctl(request, data)
+        self.inode.ioctl(request, data)
     }
 
 }

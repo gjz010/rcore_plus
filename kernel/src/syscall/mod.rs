@@ -416,17 +416,6 @@ pub enum SysError {
     ECONNREFUSED = 111,
 }
 
-impl From<IOCTLError> for SysError {
-    fn from(err_: IOCTLError) -> Self {
-        match err_ {
-            IOCTLError::NotValidFD => SysError::EBADF,
-            IOCTLError::NotValidMemory => SysError::EFAULT,
-            IOCTLError::NotValidParam => SysError::EINVAL,
-            IOCTLError::NotCharDevice => SysError::ENOTTY
-        }
-    }
-}
-
 #[allow(non_snake_case)]
 impl fmt::Display for SysError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {

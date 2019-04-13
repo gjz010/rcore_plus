@@ -71,6 +71,7 @@ macro_rules! impl_inode {
         fn fs(&self) -> Arc<FileSystem> { unimplemented!() }
         fn as_any_ref(&self) -> &Any { self }
         fn chmod(&self, _mode: u16) -> vfs::Result<()> { Ok(()) }
+        fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
     };
 }
 
@@ -85,11 +86,6 @@ impl INode for Stdin {
     impl_inode!();
 }
 
-impl DeviceINode for Stdin {
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
-        Ok(())
-    }
-}
 
 impl INode for Stdout {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> vfs::Result<usize> {
@@ -103,12 +99,6 @@ impl INode for Stdout {
         Ok(buf.len())
     }
     impl_inode!();
-}
-
-impl DeviceINode for Stdout {
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
-        Ok(())
-    }
 }
 
 impl INode for Audio {
@@ -126,10 +116,4 @@ impl INode for Audio {
         Ok(buf.len())
     }
     impl_inode!();
-}
-
-impl DeviceINode for Audio {
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
-        Ok(())
-    }
 }
