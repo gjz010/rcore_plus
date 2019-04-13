@@ -1,8 +1,9 @@
 //! File handle for process
 
 use alloc::{string::String, sync::Arc};
-
-use rcore_fs::vfs::{FsError, INode, Metadata, Result};
+use rcore_fs_sfs::*;
+use rcore_fs::vfs;
+use rcore_fs::vfs::{FsError, INode, Metadata};
 
 #[derive(Clone)]
 pub struct FileHandle {
@@ -35,13 +36,13 @@ impl FileHandle {
         }
     }
 
-    pub fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+    pub fn read(&mut self, buf: &mut [u8]) -> vfs::Result<usize> {
         let len = self.read_at(self.offset as usize, buf)?;
         self.offset += len as u64;
         Ok(len)
     }
 
-    pub fn read_at(&mut self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+    pub fn read_at(&mut self, offset: usize, buf: &mut [u8]) -> vfs::Result<usize> {
         if !self.options.read {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
@@ -49,7 +50,7 @@ impl FileHandle {
         Ok(len)
     }
 
-    pub fn write(&mut self, buf: &[u8]) -> Result<usize> {
+    pub fn write(&mut self, buf: &[u8]) -> vfs::Result<usize> {
         let offset = match self.options.append {
             true => self.inode.metadata()?.size as u64,
             false => self.offset,
@@ -59,7 +60,7 @@ impl FileHandle {
         Ok(len)
     }
 
-    pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> Result<usize> {
+    pub fn write_at(&mut self, offset: usize, buf: &[u8]) -> vfs::Result<usize> {
         if !self.options.write {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
@@ -67,7 +68,7 @@ impl FileHandle {
         Ok(len)
     }
 
-    pub fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
+    pub fn seek(&mut self, pos: SeekFrom) -> vfs::Result<u64> {
         self.offset = match pos {
             SeekFrom::Start(offset) => offset,
             SeekFrom::End(offset) => (self.inode.metadata()?.size as i64 + offset) as u64,
@@ -76,7 +77,7 @@ impl FileHandle {
         Ok(self.offset)
     }
 
-    pub fn set_len(&mut self, len: u64) -> Result<()> {
+    pub fn set_len(&mut self, len: u64) -> vfs::Result<()> {
         if !self.options.write {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
@@ -84,23 +85,23 @@ impl FileHandle {
         Ok(())
     }
 
-    pub fn sync_all(&mut self) -> Result<()> {
+    pub fn sync_all(&mut self) -> vfs::Result<()> {
         self.inode.sync_all()
     }
 
-    pub fn sync_data(&mut self) -> Result<()> {
+    pub fn sync_data(&mut self) -> vfs::Result<()> {
         self.inode.sync_data()
     }
 
-    pub fn metadata(&self) -> Result<Metadata> {
+    pub fn metadata(&self) -> vfs::Result<Metadata> {
         self.inode.metadata()
     }
 
-    pub fn lookup_follow(&self, path: &str, max_follow: usize) -> Result<Arc<INode>> {
+    pub fn lookup_follow(&self, path: &str, max_follow: usize) -> vfs::Result<Arc<INode>> {
         self.inode.lookup_follow(path, max_follow)
     }
 
-    pub fn read_entry(&mut self) -> Result<String> {
+    pub fn read_entry(&mut self) -> vfs::Result<String> {
         if !self.options.read {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
@@ -108,4 +109,10 @@ impl FileHandle {
         self.offset += 1;
         Ok(name)
     }
+
+    pub fn call_ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
+        let inode_impl = self.inode.downcast_ref::<INodeImpl>().unwrap();
+        inode_impl.call_ioctl(request, data)
+    }
+
 }

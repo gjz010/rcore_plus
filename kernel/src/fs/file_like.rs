@@ -1,8 +1,11 @@
 use core::fmt;
 
+use rcore_fs::vfs;
+use rcore_fs_sfs::*;
 use super::FileHandle;
+
 use crate::net::Socket;
-use crate::syscall::SysResult;
+use crate::syscall::{SysResult, SysError};
 use alloc::boxed::Box;
 
 // TODO: merge FileLike to FileHandle ?
@@ -27,6 +30,21 @@ impl FileLike {
             FileLike::Socket(socket) => socket.write(buf, None)?,
         };
         Ok(len)
+    }
+    pub fn call_ioctl(&mut self, request: u32, data: *mut u8) -> SysResult {
+        match self {
+            FileLike::File(file) =>
+                match file.call_ioctl(request, data) {
+                    Ok(x) => Ok(0),
+                    Err(x) => Err(match x {
+                        IOCTLError::NotValidFD => SysError::EBADF,
+                        IOCTLError::NotValidMemory => SysError::EFAULT,
+                        IOCTLError::NotValidParam => SysError::EINVAL,
+                        IOCTLError::NotCharDevice => SysError::ENOTTY
+                    })
+                },
+            FileLike::Socket(socket) => Err(SysError::ENOTTY)
+        }
     }
 }
 

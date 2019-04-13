@@ -4,6 +4,7 @@ use alloc::{string::String, sync::Arc, vec::Vec};
 use core::{fmt, slice, str};
 
 use bitflags::bitflags;
+use rcore_fs_sfs::*;
 use rcore_fs::vfs::{FileType, FsError, INode, Metadata};
 use rcore_memory::VMError;
 
@@ -70,10 +71,7 @@ pub fn syscall(id: usize, args: [usize; 6], tf: &mut TrapFrame) -> isize {
             warn!("sys_sigprocmask is unimplemented");
             Ok(0)
         }
-        SYS_IOCTL => {
-            warn!("sys_ioctl is unimplemented");
-            Ok(0)
-        }
+        SYS_IOCTL => sys_ioctl(args[0], args[1] as u32, args[2] as *mut u8),
         SYS_PREAD64 => sys_pread(args[0], args[1] as *mut u8, args[2], args[3]),
         SYS_PWRITE64 => sys_pwrite(args[0], args[1] as *const u8, args[2], args[3]),
         SYS_READV => sys_readv(args[0], args[1] as *const IoVec, args[2]),
@@ -416,6 +414,17 @@ pub enum SysError {
     EISCONN = 106,
     ENOTCONN = 107,
     ECONNREFUSED = 111,
+}
+
+impl From<IOCTLError> for SysError {
+    fn from(err_: IOCTLError) -> Self {
+        match err_ {
+            IOCTLError::NotValidFD => SysError::EBADF,
+            IOCTLError::NotValidMemory => SysError::EFAULT,
+            IOCTLError::NotValidParam => SysError::EINVAL,
+            IOCTLError::NotCharDevice => SysError::ENOTTY
+        }
+    }
 }
 
 #[allow(non_snake_case)]

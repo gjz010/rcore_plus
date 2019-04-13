@@ -12,6 +12,12 @@ use crate::sync::Condvar;
 
 use super::*;
 
+pub fn sys_ioctl(fd: usize, request: u32, data: *mut u8) -> SysResult {
+    let mut proc = process();
+    let file_like = proc.get_file_like(fd)?;
+    file_like.call_ioctl(request, data)
+}
+
 pub fn sys_read(fd: usize, base: *mut u8, len: usize) -> SysResult {
     let mut proc = process();
     if !proc.pid.is_init() {
