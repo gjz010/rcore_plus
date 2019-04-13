@@ -10,6 +10,8 @@ use rcore_fs::vfs::{INode, Metadata, FileSystem, FsError, FileType};
 use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
 
+use bcm2837::gpio;
+
 #[derive(Default)]
 pub struct Stdin {
     buf: Mutex<VecDeque<char>>,
@@ -117,6 +119,9 @@ impl INode for Audio {
         use core::str;
         //we do not care the utf-8 things, we just want to print it!
         let s = unsafe { str::from_utf8_unchecked(buf) };
+
+        let mut my_gpio = gpio::Gpio::<gpio::Uninitialized>::new(50).into_output();
+        my_gpio.set();
         print!("{}", s);
         Ok(buf.len())
     }
