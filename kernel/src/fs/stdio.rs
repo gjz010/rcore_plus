@@ -1,6 +1,6 @@
 //! Implement INode for Stdin & Stdout
 
-use alloc::{collections::vec_deque::VecDeque, string::String, sync::Arc};
+use alloc::{collections::vec_deque::VecDeque, string::String, sync::Arc, vec::Vec};
 use core::any::Any;
 use spin::RwLock;
 
@@ -44,7 +44,9 @@ impl Stdin {
 pub struct Stdout;
 
 #[derive(Default)]
-pub struct Audio;
+pub struct DSP {
+    buf: Mutex<Vec<u8>>
+}
 
 #[derive(Default)]
 pub struct GPIOOutput {
@@ -63,12 +65,13 @@ pub const STDIN_ID: usize = 0;
 pub const STDOUT_ID: usize = 1;
 pub const STDERR_ID: usize = 2;
 pub const GPIO_ID: usize = 3;
+pub const DSP_ID: usize = 4;
 
 lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
     pub static ref STDOUT: Arc<Stdout> = Arc::new(Stdout::default());
-    pub static ref AUDIO: Arc<Audio> = Arc::new(Audio::default());
     pub static ref GPIO: Arc<GPIOOutput> = Arc::new(GPIOOutput::new(0));
+    pub static ref DSP: Arc<DSP> = Arc::new(DSP::default());
 }
 
 // TODO: better way to provide default impl?
@@ -118,21 +121,25 @@ impl INode for Stdout {
     impl_inode!();
 }
 
-impl INode for Audio {
+impl INode for DSP {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> vfs::Result<usize> {
         unimplemented!()
     }
     fn write_at(&self, _offset: usize, buf: &[u8]) -> vfs::Result<usize> {
-        use core::str;
-        //we do not care the utf-8 things, we just want to print it!
-        let s = unsafe { str::from_utf8_unchecked(buf) };
-
-        let mut my_gpio = gpio::Gpio::<gpio::Uninitialized>::new(50).into_output();
-        my_gpio.set();
-        print!("{}", s);
+        let tmp = &mut Vec::<u8>::from(buf);
+        self.buf.lock().append(tmp);
         Ok(buf.len())
     }
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> { Ok(()) }
+    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), vfs::IOCTLError> {
+        if request == 0 {
+            // clear buffer and get ready for receiving audio data
+            self.buf.lock().clear();
+        } else if request == 1 {
+            // play
+            print!("{}", self.buf.lock().len());
+        }
+        Ok(())
+    }
     impl_inode!();
 }
 
