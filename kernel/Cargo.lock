@@ -55,6 +55,7 @@ name = "bcm2837"
 version = "0.1.0"
 dependencies = [
  "aarch64 2.2.2 (git+https://github.com/equation314/aarch64)",
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "volatile 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
