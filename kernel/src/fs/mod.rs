@@ -114,4 +114,7 @@ pub fn init() {
 
     let gpio_inode = SFS.new_inode_chardevice(GPIO_ID).unwrap();
     dev_inode_impl.link_inodeimpl("gpio", &gpio_inode);
+
+    let dsp_inode = SFS.new_inode_chardevice(DSP_ID).unwrap();
+    dev_inode_impl.link_inodeimpl("dsp", &gpio_inode);
 }
