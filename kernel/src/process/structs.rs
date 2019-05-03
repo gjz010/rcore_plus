@@ -275,7 +275,7 @@ impl Thread {
         files.insert(
             2,
             FileLike::File(FileHandle::new(
-                crate::fs::AUDIO.clone(),
+                crate::fs::STDOUT.clone(),
                 OpenOptions {
                     read: false,
                     write: true,

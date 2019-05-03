@@ -44,7 +44,7 @@ impl Stdin {
 pub struct Stdout;
 
 #[derive(Default)]
-pub struct DSP {
+pub struct Dsp {
     buf: Mutex<Vec<u8>>
 }
 
@@ -71,7 +71,7 @@ lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
     pub static ref STDOUT: Arc<Stdout> = Arc::new(Stdout::default());
     pub static ref GPIO: Arc<GPIOOutput> = Arc::new(GPIOOutput::new(0));
-    pub static ref DSP: Arc<DSP> = Arc::new(DSP::default());
+    pub static ref DSP: Arc<Dsp> = Arc::new(Dsp::default());
 }
 
 // TODO: better way to provide default impl?
@@ -121,7 +121,7 @@ impl INode for Stdout {
     impl_inode!();
 }
 
-impl INode for DSP {
+impl INode for Dsp {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> vfs::Result<usize> {
         unimplemented!()
     }

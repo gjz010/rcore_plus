@@ -103,6 +103,7 @@ pub fn init() {
     SFS.new_device_inode(STDIN_ID, STDIN.clone());
     SFS.new_device_inode(STDOUT_ID, STDOUT.clone());
     SFS.new_device_inode(GPIO_ID, GPIO.clone());
+    SFS.new_device_inode(DSP_ID, DSP.clone());
 
     let dev_inode_impl = dev_inode.downcast_ref::<INodeImpl>().unwrap();
 
@@ -116,5 +117,5 @@ pub fn init() {
     dev_inode_impl.link_inodeimpl("gpio", &gpio_inode);
 
     let dsp_inode = SFS.new_inode_chardevice(DSP_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("dsp", &gpio_inode);
+    dev_inode_impl.link_inodeimpl("dsp", &dsp_inode);
 }
