@@ -12,6 +12,7 @@ use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
 
 use bcm2837::gpio;
+use bcm2837::pwm_sound_device;
 
 #[derive(Default)]
 pub struct Stdin {
@@ -136,7 +137,14 @@ impl INode for Dsp {
             self.buf.lock().clear();
         } else if request == 1 {
             // play
-            print!("{}", self.buf.lock().len());
+            print!("dsp get {}", self.buf.lock().len());
+            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, 2048);
+            sound_device.init();
+            sound_device.Playback(self.buf.lock().as_ptr(), self.buf.lock().len() / 1, 1, 8);
+            while sound_device.PlaybackActive() {
+                // do nothing
+            }
+            print!("play finish");
         }
         Ok(())
     }
