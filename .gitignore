@@ -18,4 +18,9 @@ Cargo.lock
 .vscode
 
 # for vim
+
+# for idea
+kernel.iml
+.idea
+
 *.swp

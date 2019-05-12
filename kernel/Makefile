@@ -81,6 +81,8 @@ dtb := src/arch/$(arch)/board/$(board)/device.dtb
 endif
 ifeq ($(board), rocket_chip)
 dtb := src/arch/riscv32/board/$(board)/device.dtb
+export SFSIMG = $(user_dir)/build/$(arch).img
+export BLANKIMG = $(user_dir)/blank/blank.img
 endif
 
 # mipssim does not support SMP
@@ -266,6 +268,9 @@ runtest: build justruntest
 
 justrun:
 	@qemu-system-$(arch) $(qemu_opts)
+
+justruns:
+	@qemu-system-$(arch) -s -S $(qemu_opts)
 
 justrunnet: build
 	@sudo qemu-system-$(arch) $(qemu_opts) $(qemu_net_opts)

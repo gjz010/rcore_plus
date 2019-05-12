@@ -12,7 +12,6 @@ use crate::memory::MemorySet;
 use crate::sync::Condvar;
 
 use bitvec::prelude::{BitSlice, BitVec, LittleEndian};
-
 use super::*;
 
 impl Syscall<'_> {
@@ -518,21 +517,10 @@ impl Syscall<'_> {
         Ok(fd2)
     }
 
-    pub fn sys_ioctl(
-        &mut self,
-        fd: usize,
-        request: usize,
-        arg1: usize,
-        arg2: usize,
-        arg3: usize,
-    ) -> SysResult {
-        info!(
-            "ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
-            fd, request, arg1, arg2, arg3
-        );
-        let mut proc = self.process();
+    pub fn sys_ioctl(fd: usize, request: u32, data: *mut u8) -> SysResult {
+        let mut proc = process();
         let file_like = proc.get_file_like(fd)?;
-        file_like.ioctl(request, arg1, arg2, arg3)
+        file_like.ioctl(request, data)
     }
 
     pub fn sys_chdir(&mut self, path: *const u8) -> SysResult {
@@ -933,6 +921,7 @@ impl From<FsError> for SysError {
             FsError::DirNotEmpty => SysError::ENOTEMPTY,
             FsError::WrongFs => SysError::EINVAL,
             FsError::DeviceError => SysError::EIO,
+            FsError::NoDevice => SysError::EIO
         }
     }
 }

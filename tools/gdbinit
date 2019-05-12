@@ -1,3 +1,4 @@
-target remote :1234
+set arch aarch64
+file ../kernel/target/aarch64/debug/rcore
 break rust_main
-continue
+target remote :1234

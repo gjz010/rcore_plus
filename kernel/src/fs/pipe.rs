@@ -2,8 +2,8 @@
 
 use alloc::{collections::vec_deque::VecDeque, string::String, sync::Arc};
 use core::any::Any;
-
-use rcore_fs::vfs::*;
+use rcore_fs::vfs;
+use rcore_fs::vfs::{INode, IOCTLError, Metadata, FileSystem, FsError, FileType};
 
 use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
@@ -80,14 +80,15 @@ macro_rules! impl_inode {
         fn move_(&self, _old_name: &str, _target: &Arc<INode>, _new_name: &str) -> Result<()> { Err(FsError::NotDir) }
         fn find(&self, _name: &str) -> Result<Arc<INode>> { Err(FsError::NotDir) }
         fn get_entry(&self, _id: usize) -> Result<String> { Err(FsError::NotDir) }
-        fn io_control(&self, _cmd: u32, _data: usize) -> Result<()> { Err(FsError::NotSupported) }
+        fn io_control(&self, _cmd: u32, _data: usize) -> Result<()> { Err(FsError::NotSupported) }//
         fn fs(&self) -> Arc<FileSystem> { unimplemented!() }
         fn as_any_ref(&self) -> &Any { self }
+        fn chmod(&self, _mode: u16) -> Result<()> { Ok(()) }
     };
 }
 
 impl INode for Pipe {
-    fn read_at(&self, _offset: usize, buf: &mut [u8]) -> Result<usize> {
+    fn read_at(&self, _offset: usize, buf: &mut [u8]) -> vfs::Result<usize> {
         if let PipeEnd::Read = self.direction {
             let mut data = self.data.lock();
             if let Some(ch) = data.buf.pop_front() {
@@ -101,7 +102,7 @@ impl INode for Pipe {
         }
     }
 
-    fn write_at(&self, _offset: usize, buf: &[u8]) -> Result<usize> {
+    fn write_at(&self, _offset: usize, buf: &[u8]) -> vfs::Result<usize> {
         if let PipeEnd::Write = self.direction {
             if buf.len() > 0 {
                 let mut data = self.data.lock();
