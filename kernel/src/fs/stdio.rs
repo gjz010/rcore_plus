@@ -140,8 +140,10 @@ impl INode for Dsp {
             print!("dsp get {}", self.buf.lock().len());
             let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, 2048);
             sound_device.init();
-            sound_device.Playback(self.buf.lock().as_ptr(), (self.buf.lock().len() / 1) as u32, 1, 8);
+            let len = self.buf.lock().len() / 1;
+            sound_device.Playback(self.buf.lock().as_ptr(), len, 1, 8);
             while sound_device.PlaybackActive() {
+                // print!("waiting...");
                 // do nothing
             }
             print!("play finish");
