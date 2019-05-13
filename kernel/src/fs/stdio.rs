@@ -4,9 +4,8 @@ use alloc::{collections::vec_deque::VecDeque, string::String, sync::Arc, vec::Ve
 use core::any::Any;
 use spin::RwLock;
 
-use rcore_fs::vfs;
+use rcore_fs::vfs::*;
 use rcore_fs_sfs::*;
-use rcore_fs::vfs::{INode, Metadata, FileSystem, FsError, FileType};
 
 use super::ioctl::*;
 use crate::sync::Condvar;
@@ -99,26 +98,8 @@ macro_rules! impl_inode {
         fn move_(&self, _old_name: &str, _target: &Arc<INode>, _new_name: &str) -> Result<()> { Err(FsError::NotDir) }
         fn find(&self, _name: &str) -> Result<Arc<INode>> { Err(FsError::NotDir) }
         fn get_entry(&self, _id: usize) -> Result<String> { Err(FsError::NotDir) }
-        fn io_control(&self, cmd: u32, data: usize) -> Result<()> {
-            match cmd as usize {
-                TCGETS | TIOCGWINSZ | TIOCSPGRP => {
-                    // pretend to be tty
-                    Ok(())
-                },
-                TIOCGPGRP => {
-                    // pretend to be have a tty process group
-                    // TODO: verify pointer
-                    unsafe {
-                        *(data as *mut u32) = 0
-                    };
-                    Ok(())
-                }
-                _ => Err(FsError::NotSupported)
-            }
-        }
         fn fs(&self) -> Arc<FileSystem> { unimplemented!() }
         fn as_any_ref(&self) -> &Any { self }
-        fn chmod(&self, _mode: u16) -> Result<()> { Ok(()) }
     };
 }
 
@@ -137,16 +118,32 @@ impl INode for Stdin {
             error: false,
         })
     }
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> { Ok(()) }
+    fn io_control(&self, cmd: u32, data: usize) -> Result<()> {
+        match cmd as usize {
+            TCGETS | TIOCGWINSZ | TIOCSPGRP => {
+                // pretend to be tty
+                Ok(())
+            },
+            TIOCGPGRP => {
+                // pretend to be have a tty process group
+                // TODO: verify pointer
+                unsafe {
+                    *(data as *mut u32) = 0
+                };
+                Ok(())
+            }
+            _ => Err(FsError::NotSupported)
+        }
+    }
     impl_inode!();
 }
 
 
 impl INode for Stdout {
-    fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> vfs::Result<usize> {
+    fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize> {
         unimplemented!()
     }
-    fn write_at(&self, _offset: usize, buf: &[u8]) -> vfs::Result<usize> {
+    fn write_at(&self, _offset: usize, buf: &[u8]) -> Result<usize> {
         use core::str;
         //we do not care the utf-8 things, we just want to print it!
         let s = unsafe { str::from_utf8_unchecked(buf) };
@@ -160,7 +157,23 @@ impl INode for Stdout {
             error: false,
         })
     }
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> { Ok(()) }
+    fn io_control(&self, cmd: u32, data: usize) -> Result<()> {
+        match cmd as usize {
+            TCGETS | TIOCGWINSZ | TIOCSPGRP => {
+                // pretend to be tty
+                Ok(())
+            },
+            TIOCGPGRP => {
+                // pretend to be have a tty process group
+                // TODO: verify pointer
+                unsafe {
+                    *(data as *mut u32) = 0
+                };
+                Ok(())
+            }
+            _ => Err(FsError::NotSupported)
+        }
+    }
     impl_inode!();
 }
 
@@ -173,7 +186,7 @@ impl INode for Dsp {
         self.buf.lock().append(tmp);
         Ok(buf.len())
     }
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
+    fn io_control(&self, request: u32, data: usize) -> Result<()> {
         if request == 0 {
             // clear buffer and get ready for receiving audio data
             self.buf.lock().clear();
@@ -206,10 +219,10 @@ impl INode for GPIOOutput {
         my_gpio.set();
         Ok(0)
     }
-    fn ioctl(&self, request: u32, data: *mut u8) -> Result<(), IOCTLError> {
+    fn io_control(&self, request: u32, data: usize) -> Result<()> {
         if (request > 53) {
             warn!("pin id > 53!");
-            return Err(IOCTLError::NotValidParam);
+            return Err(FsError::NotSupported);
         }
         let mut pin = self.pin.write();
         *pin = request as u8;

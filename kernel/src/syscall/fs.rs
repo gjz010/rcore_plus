@@ -517,8 +517,8 @@ impl Syscall<'_> {
         Ok(fd2)
     }
 
-    pub fn sys_ioctl(fd: usize, request: u32, data: *mut u8) -> SysResult {
-        let mut proc = process();
+    pub fn sys_ioctl(&mut self, fd: usize, request: u32, data: *mut u8) -> SysResult {
+        let mut proc = self.process();
         let file_like = proc.get_file_like(fd)?;
         file_like.ioctl(request, data)
     }

@@ -25,7 +25,7 @@ mod stdio;
 #[cfg(feature = "link_user")]
 global_asm!(concat!(
     r#"
-	.section .data.img
+	.section .data
 	.global _user_img_start
 	.global _user_img_end
         .global _blank_img_start
