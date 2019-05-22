@@ -1,10 +1,10 @@
-pub mod manager;
-pub mod loader;
 pub mod api;
-pub mod structs;
-pub mod kernelvm;
-pub mod list_manager;
 pub mod cdev;
+pub mod ffi;
 pub mod fs;
 pub mod hello_device;
-pub mod ffi;
+pub mod kernelvm;
+pub mod list_manager;
+pub mod loader;
+pub mod manager;
+pub mod structs;
