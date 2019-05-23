@@ -17,7 +17,8 @@ authors = [
     "Shengqi Chen <harry-chen@outlok.com>",
     "Yuhao Zhou <miskcoo@gmail.com>"
 ]
-
+[lib]
+crate-type=["lib"]
 [features]
 default = ["sv39"]
 # Page table sv39 or sv48 (for riscv64)
@@ -48,8 +49,9 @@ profile = []
 opt-level = 2
 
 [dependencies]
-log = "0.4"
 spin = "0.5"
+log = "0.4"
+
 xmas-elf = "0.6"
 bitflags = "1.0"
 bit_field = "0.9"
