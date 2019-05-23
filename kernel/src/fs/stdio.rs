@@ -206,13 +206,11 @@ impl INode for Dsp {
             let chunk_size = 2048;
             let (vaddr0, paddr0) = provider::Provider::alloc_dma(chunk_size);
             let (vaddr1, paddr1) = provider::Provider::alloc_dma(chunk_size);
-
             print!("vaddr: {}, paddr: {}\n", vaddr0, paddr0);
             print!("vaddr: {}, paddr: {}\n", vaddr1, paddr1);
 
-            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, paddr0, paddr1);
+            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, vaddr0, paddr0, vaddr1, paddr1);
             print!("start init\n");
-            warn!("test\n");
             sound_device.init();
             print!("finish init\n");
             let len = self.buf.lock().len() / 1;
