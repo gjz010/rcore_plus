@@ -517,10 +517,21 @@ impl Syscall<'_> {
         Ok(fd2)
     }
 
-    pub fn sys_ioctl(&mut self, fd: usize, request: u32, data: *mut u8) -> SysResult {
+    pub fn sys_ioctl(
+        &mut self,
+        fd: usize,
+        request: usize,
+        arg1: usize,
+        arg2: usize,
+        arg3: usize,
+    ) -> SysResult {
+        info!(
+            "ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
+            fd, request, arg1, arg2, arg3
+        );
         let mut proc = self.process();
         let file_like = proc.get_file_like(fd)?;
-        file_like.ioctl(request, data)
+        file_like.ioctl(request, arg1, arg2, arg3)
     }
 
     pub fn sys_chdir(&mut self, path: *const u8) -> SysResult {
@@ -921,7 +932,8 @@ impl From<FsError> for SysError {
             FsError::DirNotEmpty => SysError::ENOTEMPTY,
             FsError::WrongFs => SysError::EINVAL,
             FsError::DeviceError => SysError::EIO,
-            FsError::NoDevice => SysError::EIO
+            FsError::NoDevice => SysError::EIO,
+            FsError::IOCTLError => SysError::EIO,
         }
     }
 }

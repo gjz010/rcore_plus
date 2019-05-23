@@ -5,9 +5,11 @@ use core::any::Any;
 use spin::RwLock;
 
 use rcore_fs::vfs::*;
-use rcore_fs_sfs::*;
+use rcore_fs_sfs;
 
 use super::ioctl::*;
+use crate::drivers::provider;
+use isomorphic_drivers::provider::Provider;
 use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
 
@@ -186,15 +188,33 @@ impl INode for Dsp {
         self.buf.lock().append(tmp);
         Ok(buf.len())
     }
+    fn poll(&self) -> Result<PollStatus> {
+        Ok(PollStatus {
+            read: false,
+            write: true,
+            error: false,
+        })
+    }
+
     fn io_control(&self, request: u32, data: usize) -> Result<()> {
         if request == 0 {
             // clear buffer and get ready for receiving audio data
             self.buf.lock().clear();
         } else if request == 1 {
             // play
-            print!("dsp get {}", self.buf.lock().len());
-            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, 2048);
+            print!("dsp get {}\n", self.buf.lock().len());
+            let chunk_size = 2048;
+            let (vaddr0, paddr0) = provider::Provider::alloc_dma(chunk_size);
+            let (vaddr1, paddr1) = provider::Provider::alloc_dma(chunk_size);
+
+            print!("vaddr: {}, paddr: {}\n", vaddr0, paddr0);
+            print!("vaddr: {}, paddr: {}\n", vaddr1, paddr1);
+
+            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, paddr0, paddr1);
+            print!("start init\n");
+            warn!("test\n");
             sound_device.init();
+            print!("finish init\n");
             let len = self.buf.lock().len() / 1;
             sound_device.Playback(self.buf.lock().as_ptr(), len, 1, 8);
             while sound_device.PlaybackActive() {
@@ -218,6 +238,13 @@ impl INode for GPIOOutput {
         let mut my_gpio = gpio::Gpio::<gpio::Uninitialized>::new(*self.pin.read()).into_output();
         my_gpio.set();
         Ok(0)
+    }
+    fn poll(&self) -> Result<PollStatus> {
+        Ok(PollStatus {
+            read: false,
+            write: false,
+            error: false,
+        })
     }
     fn io_control(&self, request: u32, data: usize) -> Result<()> {
         if (request > 53) {

@@ -77,7 +77,7 @@ lazy_static! {
             }
             info!("SFS linked to kernel, from {:08x} to {:08x}", _user_img_start as usize, _user_img_end as usize);
             //add a blank img to enable create file
-            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _blank_img_end) });
+            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _blank_img_end) })
         };
 
         let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
@@ -110,6 +110,7 @@ impl INodeExt for INode {
 
 pub fn init() {
     let dev_inode = ROOT_INODE.create("dev", FileType::Dir, 0).expect("fail to create dev");
+    
     SFS.new_device_inode(STDIN_ID, STDIN.clone());
     SFS.new_device_inode(STDOUT_ID, STDOUT.clone());
     SFS.new_device_inode(GPIO_ID, GPIO.clone());
@@ -118,14 +119,14 @@ pub fn init() {
     let dev_inode_impl = dev_inode.downcast_ref::<INodeImpl>().unwrap();
 
     let stdin_inode = SFS.new_inode_chardevice(STDIN_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("stdin", &stdin_inode);
+    dev_inode_impl.link_inodeimpl("stdin", &stdin_inode).unwrap();
 
     let stdout_inode = SFS.new_inode_chardevice(STDOUT_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("stdout", &stdout_inode);
+    dev_inode_impl.link_inodeimpl("stdout", &stdout_inode).unwrap();
 
     let gpio_inode = SFS.new_inode_chardevice(GPIO_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("gpio", &gpio_inode);
+    dev_inode_impl.link_inodeimpl("gpio", &gpio_inode).unwrap();
 
     let dsp_inode = SFS.new_inode_chardevice(DSP_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("dsp", &dsp_inode);
+    dev_inode_impl.link_inodeimpl("dsp", &dsp_inode).unwrap();
 }

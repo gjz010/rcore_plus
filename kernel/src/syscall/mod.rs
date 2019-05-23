@@ -93,7 +93,7 @@ impl Syscall<'_> {
                 self.sys_fstatat(args[0], args[1] as *const u8, args[2] as *mut Stat, args[3])
             }
             SYS_LSEEK => self.sys_lseek(args[0], args[1] as i64, args[2] as u8),
-            SYS_IOCTL => self.sys_ioctl(args[0], args[1] as u32, args[2] as *mut u8),
+            SYS_IOCTL => self.sys_ioctl(args[0], args[1], args[2], args[3], args[4]),
             SYS_PREAD64 => self.sys_pread(args[0], args[1] as *mut u8, args[2], args[3]),
             SYS_PWRITE64 => self.sys_pwrite(args[0], args[1] as *const u8, args[2], args[3]),
             SYS_READV => self.sys_readv(args[0], args[1] as *const IoVec, args[2]),
