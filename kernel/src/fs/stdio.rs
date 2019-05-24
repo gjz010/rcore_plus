@@ -15,6 +15,8 @@ use crate::sync::SpinNoIrqLock as Mutex;
 
 use bcm2837::gpio;
 use bcm2837::pwm_sound_device;
+use bcm2837::pwm;
+use bcm2837::timer;
 
 #[derive(Default)]
 pub struct Stdin {
@@ -203,23 +205,92 @@ impl INode for Dsp {
         } else if request == 1 {
             // play
             print!("dsp get {}\n", self.buf.lock().len());
-            let chunk_size = 2048;
-            let (vaddr0, paddr0) = provider::Provider::alloc_dma(chunk_size);
-            let (vaddr1, paddr1) = provider::Provider::alloc_dma(chunk_size);
+            let buflen = self.buf.lock().len();
+            /*
+            //let chunk_size = 2048;
+            // let buflen = self.buf.lock().len();
+            let buflen = 1024;
+            let chunk_size = buflen * 2;
+            let (vaddr0, paddr0) = provider::Provider::alloc_dma(chunk_size * 4);
+            // let (vaddr1, paddr1) = provider::Provider::alloc_dma(chunk_size);
+            let (vaddr1, paddr1) = (0, 0);
+
+            let (mut cb0_vaddr, mut cb0_paddr) = provider::Provider::alloc_dma(64);
+            while cb0_vaddr % 32 != 0 || cb0_paddr % 32 != 0 {
+                cb0_vaddr += 1;
+                cb0_paddr += 1;
+            }
             print!("vaddr: {}, paddr: {}\n", vaddr0, paddr0);
             print!("vaddr: {}, paddr: {}\n", vaddr1, paddr1);
+            print!("cbvadcr: {}, cbpaddr: {}\n", cb0_vaddr, cb0_paddr);
 
-            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, vaddr0, paddr0, vaddr1, paddr1);
+            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, vaddr0, paddr0, vaddr1, paddr1, cb0_vaddr, cb0_paddr);
             print!("start init\n");
             sound_device.init();
             print!("finish init\n");
-            let len = self.buf.lock().len() / 1;
-            sound_device.Playback(self.buf.lock().as_ptr(), len, 1, 8);
+            sound_device.Playback(self.buf.lock().as_ptr(), buflen, 1, 8);
             while sound_device.PlaybackActive() {
-                // print!("waiting...");
+                // print!("waiting..");
                 // do nothing
             }
             print!("play finish");
+            */
+
+            let mut pwm_output = pwm::PWMOutput::new();
+            pwm_output.start(4100, false);
+            let mut buf_lock = self.buf.lock();
+            for i in 0..buflen {
+                let u32_data = (buf_lock[i] as u32) << 5;
+                pwm_output.write(0, u32_data);
+                pwm_output.write(1, u32_data);
+                timer::delay_us(22);
+                //pwm_output.writeFIFO(u32_data);
+                //pwm_output.writeFIFO(u32_data);
+            }
+            /*
+            for i in 0..buflen {
+                let u32_data = (buf_lock[i] as u32) << 4;
+                //pwm_output.write(0, u32_data);
+                //pwm_output.write(1, u32_data);
+                pwm_output.writeFIFO(u32_data);
+                pwm_output.writeFIFO(u32_data);
+            }
+            */
+            print!("finish pwm output: {}\n", buflen);
+            
+
+            /*
+            for i in 0..488281 {
+                pwm_output.writeFIFO(1023);
+                pwm_output.writeFIFO(1023);
+            }
+            for i in 0..488281 {
+                pwm_output.writeFIFO(0);
+                pwm_output.writeFIFO(0);
+            }
+            for i in 0..488281 {
+                pwm_output.writeFIFO(1023);
+                pwm_output.writeFIFO(1023);
+            }
+            */
+            /*
+            for i in 0..1024 {
+                pwm_output.write(1, i);
+                pwm_output.write(2, 1024-i);
+                timer::delay_us(4000);
+            }
+            for i in 0..1024 {
+                pwm_output.write(1, i);
+                pwm_output.write(2, i);
+                timer::delay_us(4000);
+            }
+            for i in 0..1024 {
+                pwm_output.write(1, i);
+                pwm_output.write(2, i);
+                timer::delay_us(4000);
+            }
+            */
+            
         }
         Ok(())
     }
