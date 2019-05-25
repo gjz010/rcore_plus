@@ -16,6 +16,7 @@ use crate::sync::SpinNoIrqLock as Mutex;
 use bcm2837::gpio;
 use bcm2837::pwm_sound_device;
 use bcm2837::pwm;
+use bcm2837::dma;
 use bcm2837::timer;
 
 #[derive(Default)]
@@ -203,97 +204,57 @@ impl INode for Dsp {
             // clear buffer and get ready for receiving audio data
             self.buf.lock().clear();
         } else if request == 1 {
-            // play
-            print!("dsp get {}\n", self.buf.lock().len());
+            print!("dsp ioctl REQ = 1, DMA output");
             let buflen = self.buf.lock().len();
-            /*
-            //let chunk_size = 2048;
-            // let buflen = self.buf.lock().len();
-            let buflen = 1024;
-            let chunk_size = buflen * 2;
+            let chunk_size = 1000000;
+            print!("buf len: {}\n", buflen);
+
             let (vaddr0, paddr0) = provider::Provider::alloc_dma(chunk_size * 4);
-            // let (vaddr1, paddr1) = provider::Provider::alloc_dma(chunk_size);
-            let (vaddr1, paddr1) = (0, 0);
+            let (mut cb0_vaddr, mut cb0_paddr) = provider::Provider::alloc_dma(32);
+            print!("buf vaddr: {}, buf paddr: {}\n", vaddr0, paddr0);
+            print!("cb vaddr: {}, cb paddr: {}\n", cb0_vaddr, cb0_paddr);
 
-            let (mut cb0_vaddr, mut cb0_paddr) = provider::Provider::alloc_dma(64);
-            while cb0_vaddr % 32 != 0 || cb0_paddr % 32 != 0 {
-                cb0_vaddr += 1;
-                cb0_paddr += 1;
-            }
-            print!("vaddr: {}, paddr: {}\n", vaddr0, paddr0);
-            print!("vaddr: {}, paddr: {}\n", vaddr1, paddr1);
-            print!("cbvadcr: {}, cbpaddr: {}\n", cb0_vaddr, cb0_paddr);
-
-            let mut sound_device = pwm_sound_device::PWMSoundDevice::new(44100, chunk_size, vaddr0, paddr0, vaddr1, paddr1, cb0_vaddr, cb0_paddr);
-            print!("start init\n");
-            sound_device.init();
-            print!("finish init\n");
-            sound_device.Playback(self.buf.lock().as_ptr(), buflen, 1, 8);
-            while sound_device.PlaybackActive() {
-                // print!("waiting..");
-                // do nothing
-            }
-            print!("play finish");
-            */
-
-            let mut pwm_output = pwm::PWMOutput::new();
-            // pwm_output.start(4100, false);
-            pwm_output.start(5669, true);
+            // copy data
+            let mut dma_buf_ptr = vaddr0 as *mut u32;
             let mut buf_lock = self.buf.lock();
-            for i in 0..buflen {
-                let u32_data = (buf_lock[i] as u32) << 5; // * 88;
-                //pwm_output.write(0, u32_data);
-                //pwm_output.write(1, u32_data);
-                pwm_output.writeFIFO(u32_data);
-                pwm_output.writeFIFO(u32_data);
-                //timer::delay_us(20);
-                //pwm_output.writeFIFO(u32_data);
-                //pwm_output.writeFIFO(u32_data);
-            }
-            /*
-            for i in 0..buflen {
+            let max_len = chunk_size / 2;
+            for i in 0..max_len {
                 let u32_data = (buf_lock[i] as u32) << 4;
-                //pwm_output.write(0, u32_data);
-                //pwm_output.write(1, u32_data);
-                pwm_output.writeFIFO(u32_data);
-                pwm_output.writeFIFO(u32_data);
+                unsafe { *dma_buf_ptr = u32_data; }
+                unsafe { dma_buf_ptr = dma_buf_ptr.offset(1); }
+                unsafe { *dma_buf_ptr = u32_data; }
+                unsafe { dma_buf_ptr = dma_buf_ptr.offset(1); }
             }
-            */
-            print!("finish pwm output: {}\n", buflen);
-            
 
-            /*
-            for i in 0..488281 {
-                pwm_output.writeFIFO(1023);
-                pwm_output.writeFIFO(1023);
+            // start pwm
+            let mut pwm_output = pwm::PWMOutput::new();
+            pwm_output.start(5669, true);
+            pwm_output.dma_start();
+
+            let mut dma_handler = dma::DMA::new(5, chunk_size, cb0_vaddr, cb0_paddr, vaddr0, paddr0);
+            dma_handler.start();
+
+        } else if request == 2 {
+            print!("dsp ioctl REQ = 2, PWM output");
+            let buflen = self.buf.lock().len();
+            let mut pwm_output = pwm::PWMOutput::new();
+            pwm_output.start(5669, true);
+            // pwm_output.start(62500, true);
+            let mut buf_lock = self.buf.lock();
+            while true {
+                for i in 0..buflen {
+                    let u32_data = (buf_lock[i] as u32) << 4;
+                    pwm_output.writeFIFO(u32_data);
+                    pwm_output.writeFIFO(u32_data);
+                }
             }
-            for i in 0..488281 {
-                pwm_output.writeFIFO(0);
-                pwm_output.writeFIFO(0);
-            }
-            for i in 0..488281 {
-                pwm_output.writeFIFO(1023);
-                pwm_output.writeFIFO(1023);
-            }
-            */
-            /*
-            for i in 0..1024 {
-                pwm_output.write(1, i);
-                pwm_output.write(2, 1024-i);
-                timer::delay_us(4000);
-            }
-            for i in 0..1024 {
-                pwm_output.write(1, i);
-                pwm_output.write(2, i);
-                timer::delay_us(4000);
-            }
-            for i in 0..1024 {
-                pwm_output.write(1, i);
-                pwm_output.write(2, i);
-                timer::delay_us(4000);
-            }
-            */
-            
+            print!("finish pwm output: {}\n", buflen);
+        } else if request == 3 {
+            print!("dsp ioctl REQ = 3, stop DMA");
+            let (vaddr0, paddr0) = provider::Provider::alloc_dma(128 * 4);
+            let (mut cb0_vaddr, mut cb0_paddr) = provider::Provider::alloc_dma(32);
+            let mut dma_handler = dma::DMA::new(5, 128, cb0_vaddr, cb0_paddr, vaddr0, paddr0);
+            dma_handler.stop();
         }
         Ok(())
     }
