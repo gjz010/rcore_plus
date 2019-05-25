@@ -237,13 +237,16 @@ impl INode for Dsp {
             */
 
             let mut pwm_output = pwm::PWMOutput::new();
-            pwm_output.start(4100, false);
+            // pwm_output.start(4100, false);
+            pwm_output.start(5669, true);
             let mut buf_lock = self.buf.lock();
             for i in 0..buflen {
-                let u32_data = (buf_lock[i] as u32) << 5;
-                pwm_output.write(0, u32_data);
-                pwm_output.write(1, u32_data);
-                timer::delay_us(22);
+                let u32_data = (buf_lock[i] as u32) << 5; // * 88;
+                //pwm_output.write(0, u32_data);
+                //pwm_output.write(1, u32_data);
+                pwm_output.writeFIFO(u32_data);
+                pwm_output.writeFIFO(u32_data);
+                //timer::delay_us(20);
                 //pwm_output.writeFIFO(u32_data);
                 //pwm_output.writeFIFO(u32_data);
             }
