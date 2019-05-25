@@ -4,6 +4,8 @@ use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::sync::Arc;
 use core::alloc::{GlobalAlloc, Layout};
+use core::slice::from_raw_parts;
+use crate::lkm::manager::ModuleManager;
 
 pub fn get_module(this_module: usize) -> &'static mut LoadedModule {
     unsafe {
@@ -70,4 +72,16 @@ pub extern "C" fn lkm_api_kfree(ptr: usize, size: usize) {
 pub extern "C" fn lkm_api_info(ptr: *const u8){
     let text=unsafe{cstr_to_str(ptr, 1024)};
     info!("{}", text);
+}
+
+#[no_mangle]
+pub extern "C" fn lkm_api_add_kernel_symbols(start: usize, end: usize){
+    use crate::lkm::manager::LKM_MANAGER;
+    let length=end-start;
+    use core::str::from_utf8;
+    let symbols=unsafe {from_utf8(from_raw_parts(start as *const u8, length))}.unwrap();
+    let global_lkmm = &LKM_MANAGER;
+    let mut locked_lkmm = global_lkmm.lock();
+    let mut lkmm = locked_lkmm.as_mut().unwrap();
+    lkmm.init_kernel_symbols(symbols);
 }

@@ -9,6 +9,7 @@ use alloc::collections::btree_map::BTreeMap;
 use spin::RwLock;
 use crate::lkm::api::cstr_to_str;
 use alloc::vec::Vec;
+//use crate::lkm::ramfs::RamFSBehav;
 
 // The basic idea behind the INode-struct is that the INode-struct in memory works as a cache.
 // 1. Every INode struct in memory corresponds to an INode on disk.
@@ -134,6 +135,8 @@ pub struct FileSystemManager{
     fstypes: BTreeMap<String, Box<FileSystemType>>
 
 }
+
+
 pub static mut FS_MANAGER: Option<RwLock<FileSystemManager>>=None;
 impl FileSystemManager{
     pub fn new()->FileSystemManager{
@@ -145,6 +148,7 @@ impl FileSystemManager{
         unsafe{
             FS_MANAGER=Some(RwLock::new(FileSystemManager::new()));
         }
+        //RamFSBehav::registerRamFS();
     }
     pub fn get()->&'static RwLock<FileSystemManager>{
         unsafe {FS_MANAGER.as_ref().unwrap()}

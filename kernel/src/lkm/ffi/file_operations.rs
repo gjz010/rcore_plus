@@ -17,7 +17,6 @@ pub struct FileOperations {
 }
 */
 use crate::lkm::ffi::*;
-use crate::lkm::cdev::{FileOperations, CharDev, CDevManager};
 use crate::fs::{FileHandle, SeekFrom};
 use crate::lkm::cdev::{CDevManager, CharDev, FileOperations};
 use crate::rcore_fs::vfs::{FsError, Metadata, PollStatus};

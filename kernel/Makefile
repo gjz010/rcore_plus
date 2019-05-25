@@ -332,6 +332,11 @@ kernel: $(dtb)
 	@echo Building $(arch) kernel
 ifeq ($(arch), x86_64)
 	@bootimage build $(build_args)
+	rm target/x86_64/bootimage.bin
+	@echo "Now patching kernel symbols onto kernel."
+	../tools/fill_symbols.sh target/x86_64/release/rcore
+	@echo "Build bootimage again."
+	@bootimage build $(build_args)
 	@mv target/x86_64/bootimage.bin $(bootimage)
 else ifeq ($(arch), $(filter $(arch), riscv32 riscv64))
 ifeq ($(board), k210)

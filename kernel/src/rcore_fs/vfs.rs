@@ -225,7 +225,7 @@ pub struct RootFS {
     pub filesystem: Arc<FileSystem>,
     pub mountpoints: BTreeMap<INodeId, Arc<RwLock<RootFS>>>,
     pub self_mountpoint: Arc<INodeContainer>,
-    self_ref: Weak<RwLock<RootFS>>,
+    pub self_ref: Weak<RwLock<RootFS>>,
 }
 
 #[derive(Clone)]
@@ -247,7 +247,7 @@ impl RootFS {
 
     /// Wrap pure `RootFS` with `Arc<RwLock<..>>`.
     /// Used in constructors.
-    fn wrap(self) -> Arc<RwLock<Self>> {
+    pub fn wrap(self) -> Arc<RwLock<Self>> {
         // Create an Arc, make a Weak from it, then put it into the struct.
         // It's a little tricky.
         let fs = Arc::new(RwLock::new(self));
@@ -616,7 +616,7 @@ impl INodeContainer {
                     let queryback = self.vfs.read().overlaid_mount_point(queryback);
                     // TODO: mountpoint check!
                     debug!("checking name {}", name);
-                    if Arc::ptr_eq(&queryback.vfs, &self.vfs)
+                    if Arc::ptr_eq(&queryback.vfs, &child.vfs)
                         && queryback.inode.metadata()?.inode == child.inode.metadata()?.inode
                     {
                         return Ok(name);

@@ -31,16 +31,18 @@ use xmas_elf::{
     program::{Flags, Type},
     ElfFile,
 };
+// The symbol data table.
+global_asm!(include_str!("symbol_table.asm"));
 
 // Module Manager is the core part of LKM.
 // It does these jobs: Load preset(API) symbols; manage module loading dependency and linking modules; managing kseg2 virtual space.
 pub struct ModuleManager {
-    stub_symbols: Vec<ModuleSymbol>,
+    stub_symbols: BTreeMap<String, ModuleSymbol>,
     loaded_modules: Vec<Box<LoadedModule>>,
 }
 
 lazy_static! {
-    static ref LKM_MANAGER: Mutex<Option<ModuleManager>> = Mutex::new(None);
+    pub static ref LKM_MANAGER: Mutex<Option<ModuleManager>> = Mutex::new(None);
 }
 
 macro_rules! export_stub {
@@ -65,10 +67,10 @@ impl ModuleManager {
             loc: symbol_loc,
         }
     }
-    fn init_stub_symbols() -> Vec<ModuleSymbol> {
+    fn init_stub_symbols() -> BTreeMap<String, ModuleSymbol> {
         use super::ffi::file_operations::lkm_api_register_device;
         use super::fs::*;
-        vec! [
+        let vector :Vec<ModuleSymbol>=vec! [
             export_stub!(lkm_api_pong),
             export_stub!(lkm_api_debug),
             export_stub!(lkm_api_query_symbol),
@@ -79,8 +81,54 @@ impl ModuleManager {
             export_stub!(lkm_api_create_arc_inode),
             export_stub!(lkm_api_release_arc_inode),
             export_stub!(lkm_api_clone_arc_inode),
-            export_stub!(lkm_api_info)
-        ]
+            export_stub!(lkm_api_info),
+            export_stub!(lkm_api_add_kernel_symbols)
+        ];
+        let mut map: BTreeMap<String, ModuleSymbol>=BTreeMap::new();
+        for module in vector.into_iter(){
+            map.insert(module.name.clone(), module);
+        }
+        map
+    }
+    pub fn load_kernel_symbols_from_elf(&mut self){
+        extern "C" {
+            fn rcore_symbol_table();
+            fn rcore_symbol_table_size();
+        }
+        let symbol_table_start: usize=rcore_symbol_table as usize;
+        let symbol_table_len: usize=unsafe {*(rcore_symbol_table_size as usize as *const usize)};
+        info!(
+            "Loading kernel symbol table {:08x} with size {:08x}",
+            symbol_table_start as usize, symbol_table_len as usize
+        );
+        if symbol_table_len==0{
+            info!("Symbol not loaded to kernel.");
+            return;
+        }
+        use compression::prelude::*;
+        let zipped_symbols=unsafe{slice::from_raw_parts(symbol_table_start as *const u8, symbol_table_len)}.to_vec();
+
+        let real_symbols=zipped_symbols.decode(&mut GZipDecoder::new()).collect::<Result<Vec<_>, _>>().unwrap();
+        use core::slice;
+        use core::str::from_utf8;
+        self.init_kernel_symbols(unsafe {from_utf8(&real_symbols).unwrap()});
+
+    }
+    pub fn init_kernel_symbols(&mut self, kernel_symbols: &str){
+        let lines=kernel_symbols.lines();
+        for l in lines.into_iter(){
+            let mut words=l.split_whitespace();
+            let address=words.next().unwrap();
+            let stype=words.next().unwrap();
+            let name=words.next().unwrap();
+            // Simply add the symbol into stub.
+            self.stub_symbols.insert(String::from(name), ModuleSymbol{
+                name: String::from(name),
+                loc: usize::from_str_radix(address, 16).unwrap()
+            });
+
+        }
+
     }
     pub fn resolve_symbol(&self, symbol: &str) -> Option<usize> {
         self.find_symbol_in_deps(symbol, 0)
@@ -89,10 +137,8 @@ impl ModuleManager {
         if symbol == "THIS_MODULE" {
             return Some(this_module);
         }
-        for sym in self.stub_symbols.iter() {
-            if (&sym.name) == symbol {
-                return Some(sym.loc);
-            }
+        if let Some(sym)=self.stub_symbols.get(symbol){
+            return Some(sym.loc);
         }
 
         for km in self.loaded_modules.iter().rev() {
@@ -113,9 +159,14 @@ impl ModuleManager {
         find_dependency: bool,
         this_module: usize,
     ) -> Option<usize> {
+        info!("symbol index: {}", symbol_index);
+        if symbol_index==0{
+            return Some(0);
+        }
         let selected_symbol = &dynsym[symbol_index];
         if selected_symbol.shndx() == 0 {
             if find_dependency {
+                info!("symbol name: {}", selected_symbol.get_name(elf).unwrap());
                 self.find_symbol_in_deps(selected_symbol.get_name(elf).unwrap(), this_module)
             } else {
                 None
@@ -572,6 +623,7 @@ impl ModuleManager {
             stub_symbols: ModuleManager::init_stub_symbols(),
             loaded_modules: Vec::new(),
         };
+        kmm.load_kernel_symbols_from_elf();
 
         //let lkmm: Mutex<Option<ModuleManager>>=Mutex::new(None);
         LKM_MANAGER.lock().replace(kmm);
@@ -580,6 +632,9 @@ impl ModuleManager {
 }
 
 use crate::syscall::Syscall;
+use alloc::collections::btree_map::BTreeMap;
+use compression::prelude::Action;
+
 impl Syscall<'_> {
     pub fn sys_init_module(
         &mut self,

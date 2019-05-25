@@ -14,7 +14,7 @@
 
 // just keep it ...
 #[macro_use]
-extern crate alloc;
+pub extern crate alloc;
 #[macro_use]
 extern crate log;
 #[macro_use]
@@ -25,24 +25,24 @@ use buddy_system_allocator::LockedHeapWithRescue;
 use rcore_thread::std_thread as thread;
 
 #[macro_use] // print!
-mod logging;
+pub mod logging;
 #[macro_use]
-mod util;
-mod backtrace;
-mod consts;
-mod drivers;
-mod fs;
-mod lang;
-mod lkm;
-mod memory;
-mod net;
-mod process;
-mod rcore_fs;
-mod rcore_fs_sfs;
-mod shell;
-mod sync;
-mod syscall;
-mod trap;
+pub mod util;
+pub mod backtrace;
+pub mod consts;
+pub mod drivers;
+pub mod fs;
+pub mod lang;
+pub mod lkm;
+pub mod memory;
+pub mod net;
+pub mod process;
+pub mod rcore_fs;
+pub mod rcore_fs_sfs;
+pub mod shell;
+pub mod sync;
+pub mod syscall;
+pub mod trap;
 
 #[allow(dead_code)]
 #[cfg(target_arch = "x86_64")]

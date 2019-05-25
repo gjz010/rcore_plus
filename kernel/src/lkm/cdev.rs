@@ -71,6 +71,7 @@ use crate::sync::SpinNoIrqLock as Mutex;
 use crate::lkm::ffi::*;
 use core::mem;
 use core::mem::uninitialized;
+use crate::lkm::structs::ModuleRef;
 
 
 impl CDevManager {

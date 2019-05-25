@@ -74,6 +74,8 @@ rcore-thread = { git = "https://github.com/rcore-os/rcore-thread" }
 #rcore-fs-sfs = { git = "https://github.com/rcore-os/rcore-fs" }
 static_assertions = "0.3"
 
+compression = { version="0.1", default-features = false, features=["gzip"]}
+
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 bootloader = { git = "https://github.com/rcore-os/bootloader" }
 apic = { git = "https://github.com/rcore-os/apic-rs" }

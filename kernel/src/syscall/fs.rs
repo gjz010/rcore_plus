@@ -8,7 +8,7 @@ use core::mem::size_of;
 use crate::rcore_fs::get_virtual_fs;
 #[cfg(not(target_arch = "mips"))]
 use crate::rcore_fs::vfs::Timespec;
-use crate::rcore_fs::vfs::{INodeContainer, PathResolveResult};
+use crate::rcore_fs::vfs::{INodeContainer, PathResolveResult, RootFS};
 
 use crate::drivers::SOCKET_ACTIVITY;
 use crate::fs::*;
@@ -18,12 +18,12 @@ use crate::sync::Condvar;
 use bitvec::prelude::{BitSlice, BitVec, LittleEndian};
 
 use super::*;
-use crate::lkm::cdev::CDevManager;
 use alloc::slice::SliceConcatExt;
 use xmas_elf::dynamic::Tag::SymTabShIndex;
 
 use crate::lkm::cdev::CDevManager;
 use spin::RwLock;
+use alloc::sync::Weak;
 
 
 impl Syscall<'_> {
@@ -958,11 +958,12 @@ impl Syscall<'_> {
                 let fstype = unsafe { self.vm().check_and_clone_cstr(fstype)? };
                 let fsm=FileSystemManager::get().read();
                 let fs=fsm.mountFilesystem(&source, &fstype, flags as u64, data)?;
-                let new_vfs=Arc::new(RwLock::new(VirtualFS{
+                let new_vfs=RootFS{
                     filesystem: fs,
                     mountpoints: BTreeMap::new(),
-                    self_mountpoint: Arc::clone(&dir)
-                }));
+                    self_mountpoint: Arc::clone(&dir),
+                    self_ref: Weak::default(),
+                }.wrap();
                 vfs.mountpoints.insert(mtpt_inode, new_vfs);
                 Ok(0 as usize)
             },
@@ -1049,6 +1050,18 @@ impl Process {
         match self.get_file_like(fd)? {
             FileLike::File(file) => Ok(file),
             _ => Err(SysError::EBADF),
+        }
+    }
+    pub fn get_dir(&mut self, fd: usize)->Result<Arc<INodeContainer>, SysError>{
+        if fd==AT_FDCWD{
+            Ok(Arc::clone(&self.cwd.cwd))
+        }else{
+            let file=self.get_file(fd)?;
+            if file.metadata()?.type_==FileType::Dir{
+                Ok(Arc::clone(&file.inode_container))
+            }else{
+                Err(FsError::NotDir)?
+            }
         }
     }
     pub fn get_file_const(&self, fd: usize) -> Result<&FileHandle, SysError> {
