@@ -18,6 +18,8 @@ pub struct PageEntry(PageTableEntry);
 
 impl PageTable for ActivePageTable {
     fn map(&mut self, addr: usize, target: usize) -> &mut Entry {
+        let val=&self.0.p4.entries[RECURSIVE_INDEX].addr();
+        info!("PageTable(at 0x{:x})::map Mapping 0x{:x} to 0x{:x}", val, target, addr);
         let flags = EF::default();
         let attr = MairNormal::attr_value();
         self.0
@@ -30,7 +32,9 @@ impl PageTable for ActivePageTable {
             )
             .unwrap()
             .flush();
+        info!("Done.");
         self.get_entry(addr).expect("fail to get entry")
+
     }
 
     fn unmap(&mut self, addr: usize) {
@@ -194,7 +198,7 @@ impl PageEntry {
 pub struct InactivePageTable0 {
     p4_frame: Frame,
 }
-
+static mut last_bare_map:usize=0;
 impl InactivePageTable for InactivePageTable0 {
     type Active = ActivePageTable;
 
@@ -205,7 +209,9 @@ impl InactivePageTable for InactivePageTable0 {
     }
 
     fn new_bare() -> Self {
+
         let target = alloc_frame().expect("failed to allocate frame");
+        info!("Creating a bare map at target 0x{:x}.", target);
         let frame = Frame::of_addr(target as u64);
         active_table().with_temporary_map(target, |_, table: &mut Aarch64PageTable| {
             table.zero();
@@ -215,7 +221,10 @@ impl InactivePageTable for InactivePageTable0 {
                 EF::default(),
                 MairNormal::attr_value(),
             );
+            info!("Bare map now: {:?}", table);
         });
+        unsafe{last_bare_map=target;}
+        info!("Bare map created.");
         InactivePageTable0 { p4_frame: frame }
     }
 
@@ -254,18 +263,24 @@ impl InactivePageTable for InactivePageTable0 {
         active_table().with_temporary_map(
             target,
             |active_table, p4_table: &mut Aarch64PageTable| {
+                let target_table=self.p4_frame.start_address.0;
+                info!("{},{}",target_table,unsafe{last_bare_map} as u64);
+                let is_new=target_table==unsafe{last_bare_map} as u64;
+                unsafe{last_bare_map=0;}
+                if is_new{info!("S1 : {:?}", p4_table);}
                 let backup = p4_table[RECURSIVE_INDEX].clone();
                 let old_frame = ttbr_el1_read(0);
-
+                if is_new{info!("S2 now: {:?}", p4_table);}
                 // overwrite recursive mapping
                 p4_table[RECURSIVE_INDEX].set_frame(
                     self.p4_frame.clone(),
                     EF::default(),
                     MairNormal::attr_value(),
                 );
+                if is_new{info!("S3 now: {:?}", p4_table);}
                 ttbr_el1_write(0, self.p4_frame.clone());
                 tlb_invalidate_all();
-
+                if is_new{info!("S4 now: {:?}", p4_table);}
                 // execute f in the new context
                 let ret = f(active_table);
 

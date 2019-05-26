@@ -25,6 +25,7 @@ pub fn add_user_shell() {
 
     #[cfg(not(target_arch = "x86_64"))]
     let init_envs = Vec::new();
+    info!("RootFS on Raspi!");
     let init_args = vec!["busybox".into(), "ash".into()];
     let root_path = PathConfig::init_root();
     if let Ok(PathResolveResult::IsFile { file: inode, .. }) =
@@ -44,6 +45,7 @@ pub fn add_user_shell() {
 #[cfg(feature = "board_thinpad")]
 pub fn add_user_shell() {
     use crate::fs::INodeExt;
+
     let root_path = PathConfig::init_root();
     if let Ok(PathResolveResult::IsFile { file: inode, .. }) =
         root_path.path_resolve(&root_path.root, "sh", true)
@@ -62,6 +64,7 @@ pub fn add_user_shell() {
 #[cfg(feature = "run_cmdline")]
 
 pub fn add_user_shell() {
+    info!("RootFS cmdline on Raspi!");
     use crate::drivers::CMDLINE;
     let cmdline = CMDLINE.read();
     let root_path = PathConfig::init_root();

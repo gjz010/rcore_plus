@@ -10,7 +10,7 @@ pub mod paging;
 pub mod rand;
 pub mod syscall;
 pub mod timer;
-
+pub mod ipi;
 #[cfg(feature = "board_raspi3")]
 #[path = "board/raspi3/mod.rs"]
 pub mod board;
@@ -25,7 +25,19 @@ pub extern "C" fn rust_main() -> ! {
     crate::logging::init();
     interrupt::init();
     memory::init();
+    // We first load kernel-module managers...
+    // So that we can plug drivers in.
+    // Startup ModuleManager.
+    crate::lkm::manager::ModuleManager::init();
+
+    // Startup CDevManager
+    crate::lkm::cdev::CDevManager::init();
+
     driver::init();
+    // Startup FileSystemManager
+    crate::lkm::fs::FileSystemManager::init();
+
+    crate::rcore_fs::init();
     println!("{}", LOGO);
 
     crate::process::init();

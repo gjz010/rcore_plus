@@ -39,7 +39,7 @@ board ?= none
 mode ?= release
 LOG  ?=
 graphic ?= off
-smp  ?= 1
+smp  ?= 4
 pci_passthru ?=
 init ?=
 extra_nic ?= off
@@ -101,6 +101,8 @@ qemu_net_opts :=
 ifeq ($(arch), x86_64)
 qemu_opts += \
 	-drive format=raw,file=$(bootimage) \
+	-chardev socket,id=putty-sock,host=127.0.0.1,port=55555,server\
+	-device pci-serial,chardev=putty-sock\
 	-serial mon:stdio \
 	-m 4G \
 	-device isa-debug-exit
@@ -211,6 +213,11 @@ endif
 
 ifneq ($(board), none)
 features += board_$(board)
+endif
+
+ifeq ($(arch), x86_64)
+features += ipi
+features += vmalloc
 endif
 
 features += $(extra_features)

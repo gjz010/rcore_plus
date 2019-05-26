@@ -1,0 +1,5 @@
+name:rcore-base
+version:1
+api_version:0
+exported_symbols:init_module
+dependence:

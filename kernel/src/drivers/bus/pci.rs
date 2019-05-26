@@ -50,6 +50,8 @@ impl PortOps for PortOpsImpl {
 
 #[cfg(target_arch = "mips")]
 use crate::util::{read, write};
+use alloc::vec::Vec;
+
 #[cfg(feature = "board_malta")]
 const PCI_BASE: usize = 0xbbe00000;
 
@@ -77,7 +79,7 @@ impl PortOps for PortOpsImpl {
 
 /// Enable the pci device and its interrupt
 /// Return assigned MSI interrupt number when applicable
-unsafe fn enable(loc: Location) -> Option<u32> {
+pub unsafe fn enable(loc: Location) -> Option<u32> {
     let ops = &PortOpsImpl;
     let am = CSpaceAccessMethod::IO;
 
@@ -215,8 +217,6 @@ pub fn init() {
             dev.interrupt_pin,
         );
         init_driver(&dev);
-        // Instead of initializing the drivers instantly, we first add it to the Device-Manager.
-        // In the following steps it can be taken over by some kernel module.
     }
 }
 
@@ -229,16 +229,36 @@ pub fn find_device(vendor: u16, product: u16) -> Option<Location> {
     }
     None
 }
-
+pub fn find_all_devices(vendor: u16, product: u16)->Vec<Location>{
+    let pci_iter = unsafe { scan_bus(&PortOpsImpl, CSpaceAccessMethod::IO) };
+    let mut v: Vec<Location>=Vec::new();
+    for dev in pci_iter {
+        if dev.id.vendor_id == vendor && dev.id.device_id == product {
+            v.push(dev.loc);
+        }
+    }
+    v
+}
 pub fn get_bar0_mem(loc: Location) -> Option<(usize, usize)> {
     unsafe { probe_function(&PortOpsImpl, loc, CSpaceAccessMethod::IO) }
         .and_then(|dev| dev.bars[0])
-        .map(|bar| match bar {
+        .map(|bar| {
+            info!("{:?}", bar);
+            match bar {
             BAR::Memory(addr, len, _, _) => (addr as usize, len as usize),
             _ => unimplemented!(),
-        })
+        }})
 }
-
+pub fn get_bar0_io(loc: Location) -> Option<(u16, u16)> {
+    unsafe { probe_function(&PortOpsImpl, loc, CSpaceAccessMethod::IO) }
+        .and_then(|dev| dev.bars[0])
+        .map(|bar| {
+            info!("{:?}", bar);
+            match bar {
+                BAR::IO(addr, len)=>(addr as u16, len as u16),
+                _ => unimplemented!(),
+            }})
+}
 lazy_static! {
     pub static ref PCI_DRIVERS: Mutex<BTreeMap<Location, Arc<Driver>>> =
         Mutex::new(BTreeMap::new());

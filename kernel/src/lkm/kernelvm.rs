@@ -1,4 +1,5 @@
 // Simple kernel memory set for kernel virtual memory
+#[cfg(feature = "ipi")]
 use crate::arch::ipi::*;
 use crate::arch::paging::ActivePageTable;
 use crate::consts::*;
@@ -24,7 +25,7 @@ pub trait MemorySpaceManager {
 pub struct LinearManager {
     last_page: usize,
 }
-pub const KSEG2_START: usize = 0xffff_fe80_0000_0000;
+use crate::arch::consts::KSEG2_START;
 
 impl MemorySpaceManager for LinearManager {
     fn new() -> LinearManager {
@@ -242,6 +243,7 @@ impl VirtualArea {
         for p in Page::range_of(self.start, self.end) {
             parent.unmap(&mut active_pt, p.start_address());
         }
+        #[cfg(feature = "ipi")]
         invoke_on_allcpu(tlb_shootdown, (self.start, self.end), true);
     }
 }

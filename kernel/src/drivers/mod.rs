@@ -9,6 +9,7 @@ use spin::RwLock;
 use crate::sync::Condvar;
 
 use crate::rcore_fs::dev::{self, BlockDevice, DevError};
+use core::any::Any;
 
 #[allow(dead_code)]
 pub mod block;
@@ -89,6 +90,9 @@ pub trait Driver: Send + Sync {
 
     fn write_block(&self, _block_id: usize, _buf: &[u8]) -> bool {
         unimplemented!("not a block driver")
+    }
+    fn as_any_ref(&self) -> &Any{
+        unimplemented!("not ready for downcast")
     }
 }
 

@@ -415,7 +415,7 @@ impl vfs::INode for INodeImpl {
             gid: 0,
             blk_size: BLKSIZE,
             rdev: if disk_inode.type_ == FileType::CharDevice {
-                (disk_inode.blocks as u64)
+                (disk_inode.size as u64)
             } else {
                 0 as u64
             },
@@ -474,6 +474,7 @@ impl vfs::INode for INodeImpl {
             vfs::FileType::File => self.fs.new_inode_file()?,
             vfs::FileType::SymLink => self.fs.new_inode_symlink()?,
             vfs::FileType::Dir => self.fs.new_inode_dir(self.id)?,
+            vfs::FileType::CharDevice=>self.fs.new_inode_file()?,
             _ => return Err(vfs::FsError::InvalidParam),
         };
 

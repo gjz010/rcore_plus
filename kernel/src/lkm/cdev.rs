@@ -56,11 +56,15 @@ pub fn dev_minor(dev: u64) -> u32 {
 }
 pub struct CharDev {
     pub parent_module: Option<Arc<ModuleRef>>,
-    pub file_op: Arc<FileOperations>,
+    pub file_op: Arc<FileOperations>
 }
 
 pub struct CDevManager {
     dev_map: BTreeMap<u32, Arc<RwLock<CharDev>>>,
+    // This is for anonymous devices.
+    // Never call fstat() on these devices! Or you may crash something...
+    // This also prevents CDevManager from being dropped.
+    pub anonymous_inode_container: Arc<INodeContainer>
 }
 pub type LockedCharDev = RwLock<CharDev>;
 pub static mut CDEV_MANAGER: Option<RwLock<CDevManager>> = None;
@@ -78,18 +82,38 @@ impl CDevManager {
     pub fn new() -> CDevManager {
         CDevManager {
             dev_map: BTreeMap::new(),
+            anonymous_inode_container: Arc::new(unsafe {mem::uninitialized()})
         }
     }
     pub fn init() {
         unsafe {
             CDEV_MANAGER = Some(RwLock::new(CDevManager::new()));
         }
-        let mut cdevm = CDevManager::get().write();
+
         //cdevm.registerDevice(20, super::hello_device::get_cdev());
     }
     pub fn registerDevice(&mut self, dev: u32, device: CharDev) {
         info!("Registering device for {}", dev);
         self.dev_map.insert(dev, Arc::new(RwLock::new(device)));
+    }
+    // Warning: this should be called when a device is needed by kernel. (e.g. when you try to find a device.)
+    pub fn openKernelDevice(
+        &self,
+        dev: u64,
+        options: OpenOptions
+    )->Result<FileLike>{
+        info!(
+            "Finding device {} {} {}",
+            dev,
+            dev_major(dev),
+            dev_minor(dev)
+        );
+        let cdev = self.dev_map.get(&dev_major(dev)).ok_or(FsError::NoDevice)?;
+        Ok(FileLike::File(FileHandle::new_with_cdev(
+            Arc::clone(&self.anonymous_inode_container),
+            options,
+            cdev,
+        )))
     }
     pub fn openDevice(
         &self,
@@ -113,4 +137,11 @@ impl CDevManager {
     pub fn get() -> &'static RwLock<CDevManager> {
         unsafe { CDEV_MANAGER.as_ref().unwrap() }
     }
+}
+
+// Indicates a device.
+// For x86, the key is PCI vendor/
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+pub enum DeviceKey{
+
 }

@@ -115,12 +115,7 @@ impl Syscall<'_> {
             }
             SYS_MKDIRAT => self.sys_mkdirat(args[0], args[1] as *const u8, args[2]),
             SYS_MKNODAT => self.sys_mknodat(args[0], args[1] as *const u8, args[2], args[3]),
-            SYS_MKNOD => self.sys_mknodat(
-                crate::syscall::fs::AT_FDCWD,
-                args[0] as *const u8,
-                args[1],
-                args[2],
-            ),
+
 
             SYS_LINKAT => self.sys_linkat(
                 args[0],
@@ -296,6 +291,14 @@ impl Syscall<'_> {
                 self.sys_getrandom(args[0] as *mut u8, args[1] as usize, args[2] as u32)
             }
             SYS_TKILL => self.unimplemented("tkill", Ok(0)),
+            SYS_INIT_MODULE => {
+                self.sys_init_module(args[0] as *const u8, args[1] as usize, args[2] as *const u8)
+            }
+            SYS_FINIT_MODULE => {
+                debug!("[LKM] sys_finit_module is unimplemented");
+                Err(SysError::ENOSYS)
+            }
+            SYS_DELETE_MODULE => self.sys_delete_module(args[0] as *const u8, args[1] as u32),
             _ => {
                 let ret = match () {
                     #[cfg(target_arch = "x86_64")]
@@ -414,14 +417,12 @@ impl Syscall<'_> {
             SYS_ARCH_PRCTL => self.sys_arch_prctl(args[0] as i32, args[1]),
             SYS_TIME => self.sys_time(args[0] as *mut u64),
             SYS_EPOLL_CREATE => self.unimplemented("epoll_create", Err(SysError::ENOSYS)),
-            SYS_INIT_MODULE => {
-                self.sys_init_module(args[0] as *const u8, args[1] as usize, args[2] as *const u8)
-            }
-            SYS_FINIT_MODULE => {
-                debug!("[LKM] sys_finit_module is unimplemented");
-                Err(SysError::ENOSYS)
-            }
-            SYS_DELETE_MODULE => self.sys_delete_module(args[0] as *const u8, args[1] as u32),
+            SYS_MKNOD => self.sys_mknodat(
+                crate::syscall::fs::AT_FDCWD,
+                args[0] as *const u8,
+                args[1],
+                args[2],
+            ),
             _ => return None,
         };
         Some(ret)

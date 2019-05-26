@@ -13,7 +13,7 @@ pub use self::pipe::Pipe;
 pub use self::pseudo::*;
 pub use self::stdio::{STDIN, STDIN_INODE, STDOUT, STDOUT_INODE};
 
-mod device;
+pub mod device;
 mod file;
 mod file_like;
 mod ioctl;

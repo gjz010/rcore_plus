@@ -45,16 +45,21 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     gdt::init();
     //get local apic id of cpu
     cpu::init();
-    // Use IOAPIC instead of PIC, use APIC Timer instead of PIT, init serial&keyboard in x86_64
-    driver::init();
-    // init pci/bus-based devices ,e.g. Intel 10Gb NIC, ...
-    crate::drivers::init();
 
+    // We first load kernel-module managers...
+    // So that we can plug drivers in.
     // Startup ModuleManager.
     crate::lkm::manager::ModuleManager::init();
 
     // Startup CDevManager
     crate::lkm::cdev::CDevManager::init();
+
+    // Use IOAPIC instead of PIC, use APIC Timer instead of PIT, init serial&keyboard in x86_64
+    driver::init();
+    // init pci/bus-based devices ,e.g. Intel 10Gb NIC, ...
+    crate::drivers::init();
+
+
 
     // Startup FileSystemManager
     crate::lkm::fs::FileSystemManager::init();

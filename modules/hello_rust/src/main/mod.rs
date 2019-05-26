@@ -1,13 +1,22 @@
-#![no_std]
+
 extern crate rcore;
-
+extern crate alloc;
+use rcore::lkm::api::lkm_api_pong;
 use rcore::lkm::ffi;
-pub mod hello;
+use alloc::vec::Vec;
 
+pub mod hello;
+pub mod ramfs;
+pub mod serial;
 #[no_mangle]
 pub extern "C" fn init_module(){
-    rcore::lkm::api::lkm_api_pong();
+    lkm_api_pong();
     ffi::patch_isize_to_usize(10);
+    let mut v: Vec<u8>=Vec::new();
+    v.push(10);
+    v.push(20);
     hello::hello_again();
+    ramfs::RamFSBehav::registerRamFS();
+    serial::register_uart();
 }
 

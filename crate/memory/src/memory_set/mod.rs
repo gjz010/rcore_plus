@@ -510,14 +510,18 @@ impl<T: InactivePageTable> MemorySet<T> {
 
     pub fn clone(&mut self) -> Self {
         let new_page_table = T::new();
+        info!("bare map return");
         let Self {
             ref mut page_table,
             ref areas,
             ..
         } = self;
         page_table.edit(|pt| {
+            info!("start edit");
             for area in areas.iter() {
+                info!("clone map {:?}", area);
                 for page in Page::range_of(area.start_addr, area.end_addr) {
+
                     area.handler.clone_map(
                         pt,
                         &|f| unsafe { new_page_table.with(f) },

@@ -806,6 +806,7 @@ impl Syscall<'_> {
                 let inode = parent
                     .inode
                     .create(&file_name, FileType::CharDevice, mode as u32)?;
+                info!("dev: {}", dev);
                 inode.setrdev(dev as u64)?;
                 return Ok(0);
             }

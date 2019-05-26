@@ -319,12 +319,15 @@ impl Thread {
 
     /// Fork a new process from current one
     pub fn fork(&self, tf: &TrapFrame) -> Box<Thread> {
+        info!("Forker");
         let kstack = KernelStack::new();
+        info!("Forker");
         let vm = self.vm.lock().clone();
+        info!("Forker");
         let vm_token = vm.token();
         let vm = Arc::new(Mutex::new(vm));
         let context = unsafe { Context::new_fork(tf, kstack.top(), vm_token) };
-
+        info!("Forker2");
         let mut proc = self.proc.lock();
         let new_proc = Process {
             vm: vm.clone(),

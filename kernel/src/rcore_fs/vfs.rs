@@ -298,7 +298,8 @@ impl RootFS {
                 "SFS linked to kernel, from {:08x} to {:08x}",
                 _user_img_start as usize, _user_img_end as usize
             );
-            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _user_img_end) })
+            use crate::fs::device::MemBuf;
+            Arc::new(unsafe { MemBuf::new(_user_img_start, _user_img_end) })
         };
 
         SimpleFileSystem::open(device).expect("failed to open SFS")
