@@ -80,7 +80,7 @@ impl Syscall<'_> {
         let tid = processor().tid();
         if !pid.is_init() {
             // we trust pid 0 process
-            debug!("{}:{}:{} syscall id {} begin", cid, pid, tid, id);
+            info!("{}:{}:{} syscall id {} begin", cid, pid, tid, id);
         }
 
         // use platform-specific syscal numbers

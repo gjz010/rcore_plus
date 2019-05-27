@@ -1,0 +1,5 @@
+name:hello_lkm_rust
+version:10
+api_version:20
+exported_symbols:init_module
+dependence:

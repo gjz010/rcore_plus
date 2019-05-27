@@ -7,7 +7,9 @@ use rcore_memory::PAGE_SIZE;
 
 /// Memory initialization.
 pub fn init() {
+    info!("init_frame_allocator");
     init_frame_allocator();
+    info!("init_heap");
     init_heap();
     info!("memory: init end");
 }
@@ -16,11 +18,14 @@ fn init_frame_allocator() {
     use bitmap_allocator::BitAlloc;
     use core::ops::Range;
 
+    info!("probe_memory()");
     let end = super::board::probe_memory()
         .expect("failed to find memory map")
         .1;
+    info!("probe_memory() done");
     let start = virt_to_phys(_end as usize + PAGE_SIZE);
     let mut ba = FRAME_ALLOCATOR.lock();
+    info!("insert entire heap");
     ba.insert(to_range(start, end));
     info!("FrameAllocator init end");
 

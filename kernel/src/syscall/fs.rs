@@ -501,8 +501,13 @@ impl Syscall<'_> {
         stat_ptr: *mut Stat,
         flags: usize,
     ) -> SysResult {
+
         let mut proc = self.process();
-        let dir = Arc::clone(&proc.get_file(dirfd)?.inode_container);
+        let dir = if dirfd==AT_FDCWD{
+            Arc::clone(&proc.cwd.cwd)
+        }else{
+            Arc::clone(&proc.get_file(dirfd)?.inode_container)
+        };
         drop(proc);
         self.impl_sys_stat(dir, pathname, stat_ptr, (flags & 0x100) == 0)
     }
@@ -752,15 +757,19 @@ impl Syscall<'_> {
     }
 
     pub fn sys_mkdirat(&mut self, dirfd: usize, path: *const u8, mode: usize) -> SysResult {
-        let proc = self.process();
+        let mut proc = self.process();
         let path = check_and_clone_cstr(path)?;
         // TODO: check pathname
         info!(
             "mkdirat: dirfd: {}, path: {:?}, mode: {:#o}",
             dirfd as isize, path, mode
         );
-
-        match proc.cwd.path_resolve(&proc.cwd.cwd, &path, false)? {
+        let start_directory = Arc::clone(if dirfd == AT_FDCWD {
+            &proc.cwd.cwd
+        } else {
+            &proc.get_file(dirfd)?.inode_container
+        });
+        match proc.cwd.path_resolve(&start_directory, &path, false)? {
             PathResolveResult::IsDir { dir } => {
                 return Err(SysError::EEXIST);
             }

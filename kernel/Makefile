@@ -324,6 +324,10 @@ sym:
 
 $(bootloader): $(kernel)
 ifeq ($(need_bootloader), true)
+ifeq ($(arch), aarch64)
+	@echo Patching symbols into kernel
+	../tools/fill_symbols_aarch64.sh target/aarch64/release/rcore
+endif
 	@echo Building $(arch) bootloader
 	@$(strip) $(kernel) -o $(kernel)_stripped
 	@cd $(bootloader_dir) && make arch=$(arch) mode=$(mode) payload=../kernel/$(kernel)_stripped

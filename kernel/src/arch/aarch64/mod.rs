@@ -21,20 +21,24 @@ global_asm!(include_str!("boot/entry.S"));
 #[no_mangle] // don't mangle the name of this function
 pub extern "C" fn rust_main() -> ! {
     board::init_serial_early();
-
+    info!("Enable logging.");
     crate::logging::init();
+    info!("Enable interrupt.");
     interrupt::init();
+    info!("Enable memory.");
     memory::init();
     // We first load kernel-module managers...
     // So that we can plug drivers in.
     // Startup ModuleManager.
+    info!("Enable Module Manager.");
     crate::lkm::manager::ModuleManager::init();
-
+    info!("Enable CharDev Manager.");
     // Startup CDevManager
     crate::lkm::cdev::CDevManager::init();
-
+    info!("Enable drivers.");
     driver::init();
     // Startup FileSystemManager
+    info!("Enable filesystem.");
     crate::lkm::fs::FileSystemManager::init();
     info!("init fs");
     crate::rcore_fs::init();
