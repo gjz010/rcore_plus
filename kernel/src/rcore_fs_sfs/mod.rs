@@ -691,6 +691,7 @@ impl SimpleFileSystem {
             )?;
         }
 
+
         Ok(SimpleFileSystem {
             super_block: RwLock::new(Dirty::new(super_block)),
             free_map: RwLock::new(Dirty::new(BitVec::from(freemap_disk.as_slice()))),
