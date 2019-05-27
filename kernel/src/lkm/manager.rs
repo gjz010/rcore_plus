@@ -4,7 +4,7 @@ use super::loader;
 use super::structs::*;
 use crate::consts::*;
 use crate::lkm::structs::ModuleState::{Ready, Unloading};
-use crate::memory::{active_table, GlobalFrameAlloc};
+use crate::memory::{GlobalFrameAlloc};
 use crate::sync::{Condvar, SpinLock as Mutex};
 use crate::syscall::SysError::*;
 use crate::syscall::SysResult;
@@ -634,7 +634,7 @@ impl ModuleManager {
 use crate::syscall::Syscall;
 use alloc::collections::btree_map::BTreeMap;
 use compression::prelude::Action;
-
+use crate::syscall::check_and_clone_cstr;
 impl Syscall<'_> {
     pub fn sys_init_module(
         &mut self,
@@ -650,14 +650,14 @@ impl Syscall<'_> {
 
         let mut proc = self.process();
         let modimg = unsafe { self.vm().check_read_array(module_image, len)? };
-        let copied_param_values = unsafe { self.vm().check_and_clone_cstr(param_values)? };
+        let copied_param_values = check_and_clone_cstr(param_values)?;
 
         ModuleManager::with(|kmm| kmm.init_module(modimg, &copied_param_values))
     }
 
     pub fn sys_delete_module(&mut self, module_name: *const u8, flags: u32) -> SysResult {
         let mut proc = self.process();
-        let copied_modname = unsafe { self.vm().check_and_clone_cstr(module_name)? };
+        let copied_modname = check_and_clone_cstr(module_name)?;
         info!("[LKM] Removing module {:?}", copied_modname);
         let ret = ModuleManager::with(|kmm| kmm.delete_module(&copied_modname, flags));
         info!("[LKM] Remove module {:?} done!", copied_modname);

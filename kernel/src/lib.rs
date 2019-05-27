@@ -9,6 +9,7 @@
 #![feature(const_str_len)]
 #![feature(slice_concat_ext)]
 #![feature(arbitrary_self_types)]
+#![feature(fnbox)]
 #![feature(maybe_uninit)]
 #![deny(unused_must_use)]
 #![no_std]

@@ -60,6 +60,11 @@ pub unsafe fn restore(flags: usize) {
     }
 }
 
+#[no_mangle]
+pub extern "C" fn stack_pointer_not_aligned(sp: usize) {
+    panic!("Stack pointer not aligned: sp = 0x{:x?}", sp);
+}
+
 /// Dispatch and handle interrupt.
 ///
 /// This function is called from `trap.asm`.
@@ -227,7 +232,7 @@ fn reserved_inst(tf: &mut TrapFrame) -> bool {
             let tls = unsafe { *(_cur_tls as *const usize) };
 
             set_trapframe_register(rt, tls, tf);
-            info!("Read TLS by rdhdr {:x} to register {:?}", tls, rt);
+            debug!("Read TLS by rdhdr {:x} to register {:?}", tls, rt);
             return true;
         } else {
             return false;
@@ -261,6 +266,15 @@ fn page_fault(tf: &mut TrapFrame) {
 
             if !tlb_valid {
                 if !crate::memory::handle_page_fault(addr) {
+                    extern "C" {
+                        fn _copy_user_start();
+                        fn _copy_user_end();
+                    }
+                    if tf.epc >= _copy_user_start as usize && tf.epc < _copy_user_end as usize {
+                        debug!("fixup for addr {:x?}", addr);
+                        tf.epc = crate::memory::read_user_fixup as usize;
+                        return;
+                    }
                     crate::trap::error(tf);
                 }
             }
@@ -269,6 +283,15 @@ fn page_fault(tf: &mut TrapFrame) {
         }
         Err(()) => {
             if !crate::memory::handle_page_fault(addr) {
+                extern "C" {
+                    fn _copy_user_start();
+                    fn _copy_user_end();
+                }
+                if tf.epc >= _copy_user_start as usize && tf.epc < _copy_user_end as usize {
+                    debug!("fixup for addr {:x?}", addr);
+                    tf.epc = crate::memory::read_user_fixup as usize;
+                    return;
+                }
                 crate::trap::error(tf);
             }
         }

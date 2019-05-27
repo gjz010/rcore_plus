@@ -22,10 +22,13 @@ use crate::net::SOCKETS;
 use crate::rcore_fs::vfs::PathConfig;
 
 use super::abi::{self, ProcInitInfo};
+
 use crate::rcore_fs::vfs::INode;
 use crate::rcore_fs::vfs::INodeContainer;
 use crate::sync::{Condvar, SpinNoIrqLock as Mutex};
 use core::mem::uninitialized;
+use crate::processor;
+use core::mem::MaybeUninit;
 
 pub struct Thread {
     context: Context,
@@ -69,7 +72,7 @@ pub struct Process {
 
     // relationship
     pub pid: Pid, // i.e. tgid, usually the tid of first thread
-    pub parent: Option<Arc<Mutex<Process>>>,
+    pub parent: Weak<Mutex<Process>>,
     pub children: Vec<Weak<Mutex<Process>>>,
     pub threads: Vec<Tid>, // threads in the same process
 
@@ -78,8 +81,8 @@ pub struct Process {
     pub child_exit_code: BTreeMap<usize, usize>, // child process store its exit code here
 }
 
-/// Records the mapping between pid and Process struct.
 lazy_static! {
+    /// Records the mapping between pid and Process struct.
     pub static ref PROCESSES: RwLock<BTreeMap<usize, Weak<Mutex<Process>>>> =
         RwLock::new(BTreeMap::new());
 }
@@ -105,7 +108,7 @@ impl Thread {
         Box::new(Thread {
             context: Context::null(),
             // safety: other fields will never be used
-            ..core::mem::uninitialized()
+            ..core::mem::MaybeUninit::uninitialized().into_initialized()
         })
     }
 
@@ -127,7 +130,7 @@ impl Thread {
                 cwd: PathConfig::init_root(),
                 futexes: BTreeMap::default(),
                 pid: Pid(0),
-                parent: None,
+                parent: Weak::new(),
                 children: Vec::new(),
                 threads: Vec::new(),
                 child_exit: Arc::new(Condvar::new()),
@@ -147,7 +150,7 @@ impl Thread {
     ) -> Result<(MemorySet, usize, usize), &'static str> {
         // Read ELF header
         // 0x3c0: magic number from ld-musl.so
-        let mut data: [u8; 0x3c0] = unsafe { uninitialized() };
+        let mut data: [u8; 0x3c0] = unsafe { MaybeUninit::uninitialized().into_initialized() };
         inode
             .read_at(0, &mut data)
             .map_err(|_| "failed to read from INode")?;
@@ -268,6 +271,7 @@ impl Thread {
                     read: true,
                     write: false,
                     append: false,
+                    nonblock: false,
                 },
             )),
         );
@@ -279,6 +283,7 @@ impl Thread {
                     read: false,
                     write: true,
                     append: false,
+                    nonblock: false,
                 },
             )),
         );
@@ -290,6 +295,7 @@ impl Thread {
                     read: false,
                     write: true,
                     append: false,
+                    nonblock: false,
                 },
             )),
         );
@@ -307,7 +313,7 @@ impl Thread {
                 cwd: PathConfig::init_root(),
                 futexes: BTreeMap::default(),
                 pid: Pid(0),
-                parent: None,
+                parent: Weak::new(),
                 children: Vec::new(),
                 threads: Vec::new(),
                 child_exit: Arc::new(Condvar::new()),
@@ -319,15 +325,15 @@ impl Thread {
 
     /// Fork a new process from current one
     pub fn fork(&self, tf: &TrapFrame) -> Box<Thread> {
-        info!("Forker");
+        //info!("Forker");
         let kstack = KernelStack::new();
-        info!("Forker");
+        //info!("Forker");
         let vm = self.vm.lock().clone();
-        info!("Forker");
+        //info!("Forker");
         let vm_token = vm.token();
         let vm = Arc::new(Mutex::new(vm));
         let context = unsafe { Context::new_fork(tf, kstack.top(), vm_token) };
-        info!("Forker2");
+        //info!("Forker2");
         let mut proc = self.proc.lock();
         let new_proc = Process {
             vm: vm.clone(),
@@ -335,7 +341,7 @@ impl Thread {
             cwd: proc.cwd.clone(),
             futexes: BTreeMap::default(),
             pid: Pid(0),
-            parent: Some(self.proc.clone()),
+            parent: Arc::downgrade(&self.proc),
             children: Vec::new(),
             threads: Vec::new(),
             child_exit: Arc::new(Condvar::new()),
@@ -408,6 +414,20 @@ impl Process {
             self.futexes.insert(uaddr, Arc::new(Condvar::new()));
         }
         self.futexes.get(&uaddr).unwrap().clone()
+    }
+    /// Exit the process.
+    /// Kill all threads and notify parent with the exit code.
+    pub fn exit(&mut self, exit_code: usize) {
+        // quit all threads
+        for tid in self.threads.iter() {
+            processor().manager().exit(*tid, 1);
+        }
+        // notify parent and fill exit code
+        if let Some(parent) = self.parent.upgrade() {
+            let mut parent = parent.lock();
+            parent.child_exit_code.insert(self.pid.get(), exit_code);
+            parent.child_exit.notify_one();
+        }
     }
 }
 

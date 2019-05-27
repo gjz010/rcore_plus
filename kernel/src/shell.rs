@@ -1,12 +1,15 @@
 //! Kernel shell
 
+
 use crate::drivers::CMDLINE;
 use crate::fs::INodeExt;
+
 use crate::process::*;
 use crate::rcore_fs::vfs::{PathConfig, PathResolveResult};
 use alloc::string::String;
 use alloc::vec::Vec;
-#[cfg(not(any(feature = "run_cmdline", feature = "board_thinpad")))]
+
+#[cfg(not(feature = "run_cmdline"))]
 pub fn add_user_shell() {
     // the busybox of alpine linux can not transfer env vars into child process
     // Now we use busybox from
@@ -18,7 +21,11 @@ pub fn add_user_shell() {
     //        let init_shell="/bin/busybox"; // from alpine linux
     //
     //    #[cfg(not(target_arch = "x86_64"))]
+    #[cfg(not(feature = "board_rocket_chip"))]
     let init_shell = "/busybox"; //from docker-library
+    // fd is not available on rocket chip
+    #[cfg(feature = "board_rocket_chip")]
+    let init_shell = "/rust/sh";
     #[cfg(target_arch = "x86_64")]
     let init_envs =
         vec!["PATH=/usr/sbin:/usr/bin:/sbin:/bin:/usr/x86_64-alpine-linux-musl/bin".into()];
@@ -42,24 +49,6 @@ pub fn add_user_shell() {
     }
 }
 
-#[cfg(feature = "board_thinpad")]
-pub fn add_user_shell() {
-    use crate::fs::INodeExt;
-
-    let root_path = PathConfig::init_root();
-    if let Ok(PathResolveResult::IsFile { file: inode, .. }) =
-        root_path.path_resolve(&root_path.root, "sh", true)
-    {
-        processor().manager().add(Thread::new_user(
-            &inode.inode,
-            vec!["sh".into()],
-            Vec::new(),
-            Some(&root_path),
-        ));
-    } else {
-        processor().manager().add(Thread::new_kernel(shell, 0));
-    }
-}
 
 #[cfg(feature = "run_cmdline")]
 

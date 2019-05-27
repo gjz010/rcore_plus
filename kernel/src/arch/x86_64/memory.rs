@@ -1,18 +1,12 @@
-use crate::consts::KERNEL_OFFSET;
-use bitmap_allocator::BitAlloc;
-// Depends on kernel
 use super::{BootInfo, MemoryRegionType};
-use crate::memory::{active_table, init_heap, FRAME_ALLOCATOR};
-use log::*;
+use crate::memory::{init_heap, FRAME_ALLOCATOR};
+use bitmap_allocator::BitAlloc;
 use rcore_memory::paging::*;
-use rcore_memory::PAGE_SIZE;
 
 pub fn init(boot_info: &BootInfo) {
-    //assert_has_not_been_called!("memory::init must be called only once");
     init_frame_allocator(boot_info);
-    init_device_vm_map();
-    init_kernel_kseg2_map();
     init_heap();
+    info!("memory: init end");
 }
 
 /// Init FrameAllocator and insert all 'Usable' regions from BootInfo.
@@ -26,19 +20,7 @@ fn init_frame_allocator(boot_info: &BootInfo) {
         }
     }
 }
-
-fn init_device_vm_map() {
-    let mut page_table = active_table();
-    // IOAPIC
-    page_table
-        .map(KERNEL_OFFSET + 0xfec00000, 0xfec00000)
-        .update();
-    // LocalAPIC
-    page_table
-        .map(KERNEL_OFFSET + 0xfee00000, 0xfee00000)
-        .update();
-}
-
+/*
 fn init_kernel_kseg2_map() {
     let mut page_table = active_table();
     // Dirty hack here:
@@ -60,3 +42,4 @@ fn init_kernel_kseg2_map() {
         *(0xffff_ffff_ffff_ffe8 as *const usize)
     });
 }
+*/

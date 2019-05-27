@@ -36,8 +36,9 @@ pub extern "C" fn rust_main() -> ! {
     driver::init();
     // Startup FileSystemManager
     crate::lkm::fs::FileSystemManager::init();
-
+    info!("init fs");
     crate::rcore_fs::init();
+    info!("fs done");
     println!("{}", LOGO);
 
     crate::process::init();

@@ -1,5 +1,6 @@
 //! File handle for process
 
+use crate::thread;
 use alloc::{string::String, sync::Arc};
 use core::fmt;
 
@@ -24,6 +25,7 @@ pub struct OpenOptions {
     pub write: bool,
     /// Before each write, the file offset is positioned at the end of the file.
     pub append: bool,
+    pub nonblock: bool,
 }
 
 #[derive(Debug)]
@@ -89,7 +91,27 @@ impl FileHandle {
         if !self.options.read {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
-        let len = self.inode_container.inode.read_at(offset, buf)?;
+
+        let mut len: usize = 0;
+        if !self.options.nonblock {
+            // block
+            loop {
+                match self.inode_container.inode.read_at(offset, buf) {
+                    Ok(read_len) => {
+                        len = read_len;
+                        break;
+                    }
+                    Err(FsError::Again) => {
+                        thread::yield_now();
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
+            }
+        } else {
+            len = self.inode_container.inode.read_at(offset, buf)?;
+        }
         Ok(len)
     }
 
@@ -179,6 +201,13 @@ impl FileHandle {
 
     pub fn inode(&self) -> Arc<INode> {
         self.inode_container.inode.clone()
+    }
+
+    pub fn fcntl(&mut self, cmd: usize, arg: usize) -> Result<()> {
+        if arg == 2048 && cmd == 4 {
+            self.options.nonblock = true;
+        }
+        Ok(())
     }
 }
 

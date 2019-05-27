@@ -28,6 +28,7 @@ SECTIONS
     .rodata : {
         srodata = .;
         *(.rodata .rodata.*)
+        *(.dtb)
         . = ALIGN(4K);
         erodata = .;
     }

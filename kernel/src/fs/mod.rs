@@ -11,7 +11,10 @@ pub use self::file_like::*;
 pub use self::pipe::Pipe;
 
 pub use self::pseudo::*;
+
 pub use self::stdio::{STDIN, STDIN_INODE, STDOUT, STDOUT_INODE};
+
+pub use self::vga::*;
 
 pub mod device;
 mod file;
@@ -20,8 +23,10 @@ mod ioctl;
 mod pipe;
 mod pseudo;
 pub mod stdio;
+pub mod vga;
 
-/// Hard link user programs
+
+// Hard link user programs
 #[cfg(feature = "link_user")]
 global_asm!(concat!(
     r#"

@@ -679,9 +679,11 @@ impl SimpleFileSystem {
     /// Load SFS from device
     pub fn open(device: Arc<Device>) -> vfs::Result<Arc<Self>> {
         let super_block = device.load_struct::<SuperBlock>(BLKN_SUPER)?;
+        info!("superblock loaded");
         if !super_block.check() {
             return Err(FsError::WrongFs);
         }
+        info!("superblock checked {:?}", super_block);
         let mut freemap_disk = vec![0u8; BLKSIZE * super_block.freemap_blocks as usize];
         for i in 0..super_block.freemap_blocks as usize {
             device.read_block(
@@ -690,15 +692,19 @@ impl SimpleFileSystem {
                 &mut freemap_disk[i * BLKSIZE..(i + 1) * BLKSIZE],
             )?;
         }
-
-        Ok(SimpleFileSystem {
+        info!("ok {}",BLKSIZE * super_block.freemap_blocks as usize);
+        let free_map=BitVec::from(freemap_disk.as_slice());
+        info!("freemap");
+        let fs=Ok(SimpleFileSystem {
             super_block: RwLock::new(Dirty::new(super_block)),
-            free_map: RwLock::new(Dirty::new(BitVec::from(freemap_disk.as_slice()))),
+            free_map: RwLock::new(Dirty::new(free_map)),
             inodes: RwLock::new(BTreeMap::new()),
             device,
             self_ptr: Weak::default(),
         }
-        .wrap())
+        .wrap());
+        info!("ok2");
+        fs
     }
     /// Create a new SFS on blank disk
     pub fn create(device: Arc<Device>, space: usize) -> vfs::Result<Arc<Self>> {
@@ -745,6 +751,7 @@ impl SimpleFileSystem {
     fn wrap(self) -> Arc<Self> {
         // Create an Arc, make a Weak from it, then put it into the struct.
         // It's a little tricky.
+        info!("wrap1");
         let fs = Arc::new(self);
         let weak = Arc::downgrade(&fs);
         let ptr = Arc::into_raw(fs) as *mut Self;

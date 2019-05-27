@@ -185,6 +185,8 @@ pub enum FsError {
     DeviceError,
     SymLoop,  //E_LOOP, too many symlink follows.
     NoDevice, //E_NXIO
+    IOCTLError,
+    Again, // E_AGAIN, when no data is available, never happens in fs
 }
 
 impl fmt::Display for FsError {
@@ -250,11 +252,13 @@ impl RootFS {
     pub fn wrap(self) -> Arc<RwLock<Self>> {
         // Create an Arc, make a Weak from it, then put it into the struct.
         // It's a little tricky.
+        info!("wrap");
         let fs = Arc::new(RwLock::new(self));
         let weak = Arc::downgrade(&fs);
         let ptr = Arc::into_raw(fs) as *mut RwLock<Self>;
         unsafe {
             (*ptr).write().self_ref = weak;
+            info!("wrapped");
             Arc::from_raw(ptr)
         }
     }
@@ -299,10 +303,14 @@ impl RootFS {
                 _user_img_start as usize, _user_img_end as usize
             );
             use crate::fs::device::MemBuf;
-            Arc::new(unsafe { MemBuf::new(_user_img_start, _user_img_end) })
+            let result=Arc::new(unsafe { MemBuf::new(_user_img_start, _user_img_end) });
+            info!("Done");
+            result
         };
 
-        SimpleFileSystem::open(device).expect("failed to open SFS")
+        let sfs=SimpleFileSystem::open(device).expect("failed to open SFS");
+        info!("fs");
+        sfs
     }
 
     pub fn root_inode(&self) -> Arc<INodeContainer> {

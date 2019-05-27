@@ -69,29 +69,29 @@ impl Syscall<'_> {
             val,
             timeout
         );
-        //    if op & OP_PRIVATE == 0 {
-        //        unimplemented!("futex only support process-private");
-        //        return Err(SysError::ENOSYS);
-        //    }
+        if op & OP_PRIVATE == 0 {
+            warn!("process-shared futex is unimplemented");
+        }
         if uaddr % size_of::<u32>() != 0 {
             return Err(SysError::EINVAL);
         }
         let atomic = unsafe { self.vm().check_write_ptr(uaddr as *mut AtomicI32)? };
-        let _timeout = if timeout.is_null() {
-            None
-        } else {
-            Some(unsafe { *self.vm().check_read_ptr(timeout)? })
-        };
 
         const OP_WAIT: u32 = 0;
         const OP_WAKE: u32 = 1;
-        const OP_PRIVATE: u32 = 128;
+        const OP_PRIVATE: u32 = 0x80;
 
         let mut proc = self.process();
         let queue = proc.get_futex(uaddr);
 
         match op & 0xf {
             OP_WAIT => {
+                let _timeout = if timeout.is_null() {
+                    None
+                } else {
+                    Some(unsafe { *self.vm().check_read_ptr(timeout)? })
+                };
+
                 if atomic.load(Ordering::Acquire) != val {
                     return Err(SysError::EAGAIN);
                 }
