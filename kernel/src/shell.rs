@@ -32,7 +32,7 @@ pub fn add_user_shell() {
 
     #[cfg(not(target_arch = "x86_64"))]
     let init_envs = Vec::new();
-    info!("RootFS on Raspi!");
+    info!("RootFS on Raspi+!");
     let init_args = vec!["busybox".into(), "ash".into()];
     let root_path = PathConfig::init_root();
     if let Ok(PathResolveResult::IsFile { file: inode, .. }) =
