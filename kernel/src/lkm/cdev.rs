@@ -1,7 +1,7 @@
 // cdev-alike interface for device managing.
 
 
-use crate::rcore_fs::vfs::{Result, Metadata, INode, FileSystem, FileType, PollStatus, INodeContainer, FsInfo};
+use crate::rcore_fs::vfs::{Result, Metadata, INode, FileSystem, FileType, PollStatus, INodeContainer, FsInfo, PathConfig};
 use crate::fs::{FileHandle, SeekFrom, FileLike, OpenOptions};
 use alloc::boxed::Box;
 use alloc::collections::btree_map::BTreeMap;
@@ -32,7 +32,7 @@ pub trait FileOperations {
 
 */
 pub trait FileOperations: Send + Sync {
-    fn open(&self) -> usize;
+    fn open(&self, minor: usize) -> usize;
     fn read(&self, fh: &mut FileHandle, buf: &mut [u8]) -> Result<usize>;
     fn read_at(&self, fh: &mut FileHandle, offset: usize, buf: &mut [u8]) -> Result<usize>;
     fn write(&self, fh: &mut FileHandle, buf: &[u8]) -> Result<usize>;
@@ -46,6 +46,7 @@ pub trait FileOperations: Send + Sync {
     fn poll(&self, fh: &FileHandle) -> Result<PollStatus>;
     fn io_control(&self, fh: &FileHandle, cmd: u32, arg: usize) -> Result<()>;
     fn close(&self, data: usize);
+    fn as_any_ref(&self) -> &Any;
 }
 
 pub fn dev_major(dev: u64) -> u32 {
@@ -76,9 +77,47 @@ use crate::lkm::ffi::*;
 use core::mem;
 use core::mem::uninitialized;
 use crate::lkm::structs::ModuleRef;
+use crate::rcore_fs::dev::{BlockDevice, Device};
+use crate::drivers::BlockDriver;
+use crate::rcore_fs::vfs::PathResolveResult::{IsFile, IsDir, NotExist};
+use crate::rcore_fs::dev;
 
+
+impl BlockDevice for FileHandle{
+    fn block_size_log2(&self) -> u8 {
+        9
+    }
+
+    fn read_at(&self, block_id: usize, buf: &mut [u8]) -> dev::Result<()> {
+        FileHandle::read_at(unsafe {&mut *(self as *const FileHandle as *mut FileHandle)}, block_id<<self.block_size_log2(), buf).unwrap();
+        Ok(())
+    }
+
+    fn write_at(&self, block_id: usize, buf: &[u8]) -> dev::Result<()> {
+        FileHandle::write_at(unsafe {&mut *(self as *const FileHandle as *mut FileHandle)}, block_id<<self.block_size_log2(), buf).unwrap();
+        Ok(())
+    }
+
+    fn sync(&self) -> dev::Result<()> {
+        FileHandle::sync(self)
+    }
+}
 
 impl CDevManager {
+
+    pub fn findDevice(path: &str, cwd: &PathConfig)->Result<u64>{
+        match cwd.path_resolve(&cwd.cwd, path, true)?{
+            IsFile{file, ..}=>{
+                let metadata=file.inode.metadata()?;
+                if metadata.type_!=FileType::CharDevice{
+                    return Err(FsError::InvalidParam);
+                }
+                Ok(metadata.rdev)
+            },
+            IsDir{..}=>Err(FsError::NotFile),
+            NotExist{..}=>Err(FsError::EntryNotFound)
+        }
+    }
     pub fn new() -> CDevManager {
         CDevManager {
             dev_map: BTreeMap::new(),
@@ -89,7 +128,8 @@ impl CDevManager {
         unsafe {
             CDEV_MANAGER = Some(RwLock::new(CDevManager::new()));
         }
-
+        //let mut cdevm=CDevManager::get().write();
+        //crate::arch::board::emmc::register_emmc();
         //cdevm.registerDevice(20, super::hello_device::get_cdev());
     }
     pub fn registerDevice(&mut self, dev: u32, device: CharDev) {
@@ -101,7 +141,7 @@ impl CDevManager {
         &self,
         dev: u64,
         options: OpenOptions
-    )->Result<FileLike>{
+    )->Result<FileHandle>{
         info!(
             "Finding device {} {} {}",
             dev,
@@ -109,11 +149,12 @@ impl CDevManager {
             dev_minor(dev)
         );
         let cdev = self.dev_map.get(&dev_major(dev)).ok_or(FsError::NoDevice)?;
-        Ok(FileLike::File(FileHandle::new_with_cdev(
+        Ok(FileHandle::new_with_cdev(
             Arc::clone(&self.anonymous_inode_container),
             options,
             cdev,
-        )))
+            dev_minor(dev) as usize
+        ))
     }
     pub fn openDevice(
         &self,
@@ -132,6 +173,7 @@ impl CDevManager {
             inode_container,
             options,
             cdev,
+            dev_minor(dev) as usize
         )))
     }
     pub fn get() -> &'static RwLock<CDevManager> {

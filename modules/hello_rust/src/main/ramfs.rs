@@ -11,6 +11,7 @@ use spin::{RwLock, RwLockWriteGuard};
 use rcore::lkm::fs::FileSystemManager;
 use core::cmp::min;
 use alloc::vec;
+use rcore::syscall::Syscall;
 pub struct RamFSBehav{}
 impl RamFSBehav{
     pub fn registerRamFS(){
@@ -19,7 +20,7 @@ impl RamFSBehav{
 }
 struct LockedINode(RwLock<RamFSINode>);
 impl FileSystemType for RamFSBehav{
-    fn mount(&self, source: &str, flags: u64, data: usize) -> Result<Arc<FileSystem>, FsError> {
+    fn mount(&self, syscall: &mut Syscall, source: &str, flags: u64, data: usize) -> Result<Arc<FileSystem>, FsError> {
         let root=Arc::new(LockedINode(RwLock::new(RamFSINode{
             this: None,
             parent: None,

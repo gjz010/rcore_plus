@@ -1,10 +1,7 @@
 #![cfg_attr(not(any(test, feature = "std")), no_std)]
 
-//extern crate alloc;
-//#[macro_use]
-//extern crate log;
-
 use alloc::{
+    boxed::Box,
     collections::BTreeMap,
     string::String,
     sync::{Arc, Weak},
@@ -16,14 +13,15 @@ use core::fmt::{Debug, Error, Formatter};
 use core::mem::uninitialized;
 
 use bitvec::prelude::BitVec;
-use spin::RwLock;
+//use bitvec::BitVec;
+use spin::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
-use crate::rcore_fs::dev::{DevError, Device};
+use crate::rcore_fs::dev::Device;
 use crate::rcore_fs::dirty::Dirty;
 use crate::rcore_fs::util::*;
 use crate::rcore_fs::vfs::{self, FileSystem, FsError, INode, Timespec};
 
-use self::structs::*;
+pub use self::structs::*;
 
 mod structs;
 
@@ -60,6 +58,9 @@ pub struct INodeImpl {
     disk_inode: RwLock<Dirty<DiskINode>>,
     /// Reference to SFS, used by almost all operations
     fs: Arc<SimpleFileSystem>,
+    /// Char/block device id (major, minor)
+    /// e.g. crw-rw-rw- 1 root wheel 3, 2 May 13 16:40 /dev/null
+    device_inode_id: usize,
 }
 
 impl Debug for INodeImpl {
@@ -180,6 +181,7 @@ impl INodeImpl {
         Ok(())
     }
     fn read_direntry(&self, id: usize) -> vfs::Result<DiskEntry> {
+
         let mut direntry: DiskEntry = unsafe { uninitialized() };
         self._read_at(DIRENT_SIZE * id, direntry.as_buf_mut())?;
         Ok(direntry)
@@ -189,6 +191,7 @@ impl INodeImpl {
         Ok(())
     }
     fn append_direntry(&self, direntry: &DiskEntry) -> vfs::Result<()> {
+
         let size = self.disk_inode.read().size as usize;
         let dirent_count = size / DIRENT_SIZE;
         self._resize(size + DIRENT_SIZE)?;
@@ -313,8 +316,8 @@ impl INodeImpl {
     // Note: the _\w*_at method always return begin>size?0:begin<end?0:(min(size,end)-begin) when success
     /// Read/Write content, no matter what type it is
     fn _io_at<F>(&self, begin: usize, end: usize, mut f: F) -> vfs::Result<usize>
-    where
-        F: FnMut(&Arc<Device>, &BlockRange, usize) -> vfs::Result<()>,
+        where
+            F: FnMut(&Arc<Device>, &BlockRange, usize) -> vfs::Result<()>,
     {
         let size = self.disk_inode.read().size as usize;
         let iter = BlockIter {
@@ -363,28 +366,74 @@ impl INodeImpl {
         assert!(disk_inode.nlinks > 0);
         disk_inode.nlinks -= 1;
     }
+
+    pub fn link_inodeimpl(&self, name: &str, other: &Arc<INodeImpl>) -> vfs::Result<()> {
+        let info = self.metadata()?;
+        if info.type_ != vfs::FileType::Dir {
+            return Err(FsError::NotDir);
+        }
+        if info.nlinks <= 0 {
+            return Err(FsError::DirRemoved);
+        }
+        if !self.get_file_inode_id(name).is_none() {
+            return Err(FsError::EntryExist);
+        }
+        let child = other;
+        if !Arc::ptr_eq(&self.fs, &child.fs) {
+            return Err(FsError::NotSameFs);
+        }
+        if child.metadata()?.type_ == vfs::FileType::Dir {
+            return Err(FsError::IsDir);
+        }
+        let entry = DiskEntry {
+            id: child.id as u32,
+            name: Str256::from(name),
+        };
+        let mut disk_inode = self.disk_inode.write();
+        let old_size = disk_inode.size as usize;
+        self._resize(old_size + BLKSIZE)?;
+        self._write_at(old_size, entry.as_buf()).unwrap();
+        child.nlinks_inc();
+        Ok(())
+    }
 }
 
 impl vfs::INode for INodeImpl {
     fn read_at(&self, offset: usize, buf: &mut [u8]) -> vfs::Result<usize> {
-        if self.disk_inode.read().type_ != FileType::File
-            && self.disk_inode.read().type_ != FileType::SymLink
-        {
-            return Err(FsError::NotFile);
+        match self.disk_inode.read().type_ {
+            FileType::File => self._read_at(offset, buf),
+            FileType::SymLink => self._read_at(offset, buf),
+            FileType::CharDevice => {
+                let device_inodes = self.fs.device_inodes.read();
+                let device_inode = device_inodes.get(&self.device_inode_id);
+                match device_inode {
+                    Some(device) => device.read_at(offset, buf),
+                    None => Err(FsError::DeviceError),
+                }
+            }
+            _ => Err(FsError::NotFile),
         }
-        self._read_at(offset, buf)
     }
     fn write_at(&self, offset: usize, buf: &[u8]) -> vfs::Result<usize> {
         let DiskINode { type_, size, .. } = **self.disk_inode.read();
-        if type_ != FileType::File && type_ != FileType::SymLink {
-            return Err(FsError::NotFile);
+        match type_ {
+            FileType::File | FileType::SymLink => {
+                let end_offset = offset + buf.len();
+                if (size as usize) < end_offset {
+                    self._resize(end_offset)?;
+                }
+                self._write_at(offset, buf)
+            }
+            FileType::CharDevice => {
+                let device_inodes = self.fs.device_inodes.write();
+                let device_inode = device_inodes.get(&self.device_inode_id);
+                match device_inode {
+                    Some(device) => device.write_at(offset, buf),
+                    None => Err(FsError::DeviceError),
+                }
+            }
+            _ => Err(FsError::NotFile),
         }
-        // resize if not large enough
-        let end_offset = offset + buf.len();
-        if (size as usize) < end_offset {
-            self._resize(end_offset)?;
-        }
-        self._write_at(offset, buf)
     }
     fn poll(&self) -> vfs::Result<vfs::PollStatus> {
         Ok(vfs::PollStatus {
@@ -399,10 +448,12 @@ impl vfs::INode for INodeImpl {
         Ok(vfs::Metadata {
             dev: 0,
             inode: self.id,
-            size: if disk_inode.type_ == FileType::CharDevice {
-                0 as usize
-            } else {
-                disk_inode.size as usize
+            size: match disk_inode.type_ {
+                FileType::File | FileType::SymLink => disk_inode.size as usize,
+                FileType::Dir => disk_inode.size as usize,
+                FileType::CharDevice => 0,
+                FileType::BlockDevice => 0,
+                _ => panic!("Unknown file type"),
             },
             mode: 0o777,
             type_: vfs::FileType::from(disk_inode.type_.clone()),
@@ -414,21 +465,8 @@ impl vfs::INode for INodeImpl {
             uid: 0,
             gid: 0,
             blk_size: BLKSIZE,
-            rdev: if disk_inode.type_ == FileType::CharDevice {
-                (disk_inode.size as u64)
-            } else {
-                0 as u64
-            },
+            rdev: self.device_inode_id as u64,
         })
-    }
-    fn setrdev(&self, dev: u64) -> vfs::Result<()> {
-        let mut disk_inode = self.disk_inode.write();
-        disk_inode.type_ = FileType::CharDevice;
-        disk_inode.size = dev as u32;
-        self.fs
-            .device
-            .write_block(self.id, 0, disk_inode.as_buf())?;
-        Ok(())
     }
     fn set_metadata(&self, _metadata: &vfs::Metadata) -> vfs::Result<()> {
         // No-op for sfs
@@ -455,7 +493,7 @@ impl vfs::INode for INodeImpl {
         }
         self._resize(len)
     }
-    fn create(&self, name: &str, type_: vfs::FileType, _mode: u32) -> vfs::Result<Arc<vfs::INode>> {
+    fn create2(&self, name: &str, type_: vfs::FileType, _mode: u32, rdev: usize) -> vfs::Result<Arc<vfs::INode>> {
         let info = self.metadata()?;
         if info.type_ != vfs::FileType::Dir {
             return Err(FsError::NotDir);
@@ -474,10 +512,9 @@ impl vfs::INode for INodeImpl {
             vfs::FileType::File => self.fs.new_inode_file()?,
             vfs::FileType::SymLink => self.fs.new_inode_symlink()?,
             vfs::FileType::Dir => self.fs.new_inode_dir(self.id)?,
-            vfs::FileType::CharDevice=>self.fs.new_inode_file()?,
+            vfs::FileType::CharDevice => self.fs.new_inode_chardevice(rdev)?,
             _ => return Err(vfs::FsError::InvalidParam),
         };
-
         // Write new entry
         self.append_direntry(&DiskEntry {
             id: inode.id as u32,
@@ -491,6 +528,7 @@ impl vfs::INode for INodeImpl {
 
         Ok(inode)
     }
+
     fn link(&self, name: &str, other: &Arc<INode>) -> vfs::Result<()> {
         let info = self.metadata()?;
         if info.type_ != vfs::FileType::Dir {
@@ -633,7 +671,18 @@ impl vfs::INode for INodeImpl {
         Ok(String::from(entry.name.as_ref()))
     }
     fn io_control(&self, _cmd: u32, _data: usize) -> vfs::Result<()> {
-        Err(FsError::NotSupported)
+        if self.metadata().unwrap().type_ != vfs::FileType::CharDevice {
+            return Err(FsError::IOCTLError);
+        }
+        let device_inodes = self.fs.device_inodes.read();
+        let device_inode = device_inodes.get(&self.device_inode_id);
+        match device_inode {
+            Some(x) => x.io_control(_cmd, _data),
+            None => {
+                warn!("cannot find corresponding device inode in call_inoctl");
+                Err(FsError::IOCTLError)
+            }
+        }
     }
     fn fs(&self) -> Arc<vfs::FileSystem> {
         self.fs.clone()
@@ -673,17 +722,17 @@ pub struct SimpleFileSystem {
     device: Arc<Device>,
     /// Pointer to self, used by INodes
     self_ptr: Weak<SimpleFileSystem>,
+    /// device inode
+    device_inodes: RwLock<BTreeMap<usize, Arc<DeviceINode>>>,
 }
 
 impl SimpleFileSystem {
     /// Load SFS from device
     pub fn open(device: Arc<Device>) -> vfs::Result<Arc<Self>> {
         let super_block = device.load_struct::<SuperBlock>(BLKN_SUPER)?;
-        info!("superblock loaded");
         if !super_block.check() {
             return Err(FsError::WrongFs);
         }
-        info!("superblock checked {:?}", super_block);
         let mut freemap_disk = vec![0u8; BLKSIZE * super_block.freemap_blocks as usize];
         for i in 0..super_block.freemap_blocks as usize {
             device.read_block(
@@ -692,19 +741,16 @@ impl SimpleFileSystem {
                 &mut freemap_disk[i * BLKSIZE..(i + 1) * BLKSIZE],
             )?;
         }
-        info!("ok {}",BLKSIZE * super_block.freemap_blocks as usize);
-        let free_map=BitVec::from(freemap_disk.as_slice());
-        info!("freemap");
-        let fs=Ok(SimpleFileSystem {
+
+        Ok(SimpleFileSystem {
             super_block: RwLock::new(Dirty::new(super_block)),
-            free_map: RwLock::new(Dirty::new(free_map)),
+            free_map: RwLock::new(Dirty::new(BitVec::from(freemap_disk.as_slice()))),
             inodes: RwLock::new(BTreeMap::new()),
             device,
             self_ptr: Weak::default(),
+            device_inodes: RwLock::new(BTreeMap::new()),
         }
-        .wrap());
-        info!("ok2");
-        fs
+            .wrap())
     }
     /// Create a new SFS on blank disk
     pub fn create(device: Arc<Device>, space: usize) -> vfs::Result<Arc<Self>> {
@@ -734,8 +780,9 @@ impl SimpleFileSystem {
             inodes: RwLock::new(BTreeMap::new()),
             device,
             self_ptr: Weak::default(),
+            device_inodes: RwLock::new(BTreeMap::new()),
         }
-        .wrap();
+            .wrap();
 
         // Init root INode
         let root = sfs._new_inode(BLKN_ROOT, Dirty::new_dirty(DiskINode::new_dir()));
@@ -751,7 +798,6 @@ impl SimpleFileSystem {
     fn wrap(self) -> Arc<Self> {
         // Create an Arc, make a Weak from it, then put it into the struct.
         // It's a little tricky.
-        info!("wrap1");
         let fs = Arc::new(self);
         let weak = Arc::downgrade(&fs);
         let ptr = Arc::into_raw(fs) as *mut Self;
@@ -788,17 +834,26 @@ impl SimpleFileSystem {
         trace!("free block {:#x}", block_id);
     }
 
+    pub fn new_device_inode(&self, device_inode_id: usize, device_inode: Arc<DeviceINode>) {
+        self.device_inodes
+            .write()
+            .insert(device_inode_id, device_inode);
+    }
+
     /// Create a new INode struct, then insert it to self.inodes
     /// Private used for load or create INode
     fn _new_inode(&self, id: INodeId, disk_inode: Dirty<DiskINode>) -> Arc<INodeImpl> {
+        let device_inode_id = disk_inode.device_inode_id;
         let inode = Arc::new(INodeImpl {
             id,
             disk_inode: RwLock::new(disk_inode),
             fs: self.self_ptr.upgrade().unwrap(),
+            device_inode_id: device_inode_id,
         });
         self.inodes.write().insert(id, Arc::downgrade(&inode));
         inode
     }
+
     /// Get inode by id. Load if not in memory.
     /// ** Must ensure it's a valid INode **
     fn get_inode(&self, id: INodeId) -> Arc<INodeImpl> {
@@ -834,6 +889,13 @@ impl SimpleFileSystem {
         inode.init_direntry(parent)?;
         Ok(inode)
     }
+    /// Create a new INode chardevice
+    pub fn new_inode_chardevice(&self, device_inode_id: usize) -> vfs::Result<Arc<INodeImpl>> {
+        let id = self.alloc_block().ok_or(FsError::NoDeviceSpace)?;
+        let disk_inode = Dirty::new_dirty(DiskINode::new_chardevice(device_inode_id));
+        let new_inode = self._new_inode(id, disk_inode);
+        Ok(new_inode)
+    }
     fn flush_weak_inodes(&self) {
         let mut inodes = self.inodes.write();
         let remove_ids: Vec<_> = inodes
@@ -846,11 +908,7 @@ impl SimpleFileSystem {
         }
     }
 }
-impl From<DevError> for FsError {
-    fn from(err: DevError) -> Self {
-        FsError::DeviceError
-    }
-}
+
 impl vfs::FileSystem for SimpleFileSystem {
     /// Write back super block if dirty
     fn sync(&self) -> vfs::Result<()> {
@@ -883,6 +941,9 @@ impl vfs::FileSystem for SimpleFileSystem {
 
     fn root_inode(&self) -> Arc<vfs::INode> {
         self.get_inode(BLKN_ROOT)
+        // let root = self.get_inode(BLKN_ROOT);
+        // root.create("dev", vfs::FileType::Dir, 0).expect("fail to create dev"); // what's mode?
+        // return root;
     }
 
     fn info(&self) -> vfs::FsInfo {
@@ -941,6 +1002,7 @@ impl From<FileType> for vfs::FileType {
             FileType::SymLink => vfs::FileType::SymLink,
             FileType::Dir => vfs::FileType::Dir,
             FileType::CharDevice => vfs::FileType::CharDevice,
+            FileType::BlockDevice => vfs::FileType::BlockDevice,
             _ => panic!("unknown file type"),
         }
     }

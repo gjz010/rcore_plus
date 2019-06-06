@@ -175,7 +175,8 @@ else ifeq ($(arch), aarch64)
 qemu_opts += \
 	-machine $(board) \
 	-serial null -serial mon:stdio \
-	-kernel $(kernel_img)
+	-kernel $(kernel_img) \
+    -sd ../tools/pi.img
 ifneq ($(u_boot), )
 qemu_opts += \
 	-sd $(bootloader)

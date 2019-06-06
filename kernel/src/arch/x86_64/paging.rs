@@ -201,11 +201,14 @@ impl PageTableImpl {
     pub unsafe fn active() -> Self {
         let frame = Cr3::read().0;
         let table = &mut *frame_to_page_table(frame);
-        PageTableImpl(
+        info!("{:?}", table);
+        let imp=PageTableImpl(
             MappedPageTable::new(table, frame_to_page_table),
             core::mem::MaybeUninit::uninitialized().into_initialized(),
             frame,
-        )
+        );
+        info!("get");
+        imp
     }
     pub unsafe fn kernel_table()->ManuallyDrop<Self>{
         // Since we share the single entry, it doesn't matter which table is chosen.
@@ -235,11 +238,13 @@ impl PageTableExt for PageTableImpl {
         let ekernel = table[510].clone();
         let ephysical = table[0x1f8].clone();
         let estack = table[175].clone();
-
+        let ekseg2=table[509].clone();
         let table = unsafe { &mut *frame_to_page_table(self.2) };
         table[510].set_addr(ekernel.addr(), ekernel.flags() | EF::GLOBAL);
         table[0x1f8].set_addr(ephysical.addr(), ephysical.flags() | EF::GLOBAL);
         table[175].set_addr(estack.addr(), estack.flags() | EF::GLOBAL);
+        table[509].set_addr(ekseg2.addr(), ekseg2.flags()|EF::GLOBAL);
+
     }
 
     fn token(&self) -> usize {

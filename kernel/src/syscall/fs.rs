@@ -821,9 +821,9 @@ impl Syscall<'_> {
                 // Need also consider named pipe, named socket and so on.
                 let inode = parent
                     .inode
-                    .create(&file_name, FileType::CharDevice, mode as u32)?;
+                    .create2(&file_name, FileType::CharDevice, mode as u32, dev)?;
+                info!("{:?}", file_name);
                 info!("dev: {}", dev);
-                inode.setrdev(dev as u64)?;
                 return Ok(0);
             }
         }
@@ -977,7 +977,8 @@ impl Syscall<'_> {
                 let source = unsafe { check_and_clone_cstr(source)? };
                 let fstype = unsafe { check_and_clone_cstr(fstype)? };
                 let fsm=FileSystemManager::get().read();
-                let fs=fsm.mountFilesystem(&source, &fstype, flags as u64, data)?;
+                drop(proc);
+                let fs=fsm.mountFilesystem(self, &source, &fstype, flags as u64, data)?;
                 let new_vfs=RootFS{
                     filesystem: fs,
                     mountpoints: BTreeMap::new(),

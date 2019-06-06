@@ -173,7 +173,7 @@ impl Syscall<'_> {
             SYS_MPROTECT => self.sys_mprotect(args[0], args[1], args[2]),
             SYS_MUNMAP => self.sys_munmap(args[0], args[1]),
             SYS_MADVISE => self.unimplemented("madvise", Ok(0)),
-
+            SYS_MREMAP => self.sys_mremap(args[0], args[1], args[2], args[3], args[4]),
             // signal
             SYS_RT_SIGACTION => self.unimplemented("sigaction", Ok(0)),
             SYS_RT_SIGPROCMASK => self.unimplemented("sigprocmask", Ok(0)),

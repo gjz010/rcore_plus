@@ -17,6 +17,7 @@ pub struct FileHandle {
     pub overlay_file_operations: Option<Arc<FileOperations>>,
     pub belonging_device: Option<Arc<LockedCharDev>>,
     pub user_data: usize,
+    pub minor: usize
 }
 
 #[derive(Debug, Clone)]
@@ -56,27 +57,32 @@ impl FileHandle {
             overlay_file_operations: None,
             belonging_device: None,
             user_data: 0,
+            minor: 0
         }
     }
     pub fn new_with_cdev(
         inode_container: Arc<INodeContainer>,
         options: OpenOptions,
         ops: &Arc<LockedCharDev>,
+        minor:usize
     ) -> Self {
         let mut handle = FileHandle::new(inode_container, options);
         handle.overlay_file_operations = Some(Arc::clone(&ops.read().file_op));
         handle.belonging_device = Some(Arc::clone(ops));
-        handle.user_data = handle.overlay_file_operations.as_ref().unwrap().open();
+        handle.minor=minor;
+        handle.user_data = handle.overlay_file_operations.as_ref().unwrap().open(minor);
         handle
     }
     pub fn new_with_overlay_op(
         inode_container: Arc<INodeContainer>,
         options: OpenOptions,
         ops: &Arc<FileOperations>,
+        minor:usize
     ) -> Self {
         let mut handle = FileHandle::new(inode_container, options);
+        handle.minor=minor;
         handle.overlay_file_operations = Some(Arc::clone(ops));
-        handle.user_data = handle.overlay_file_operations.as_ref().unwrap().open();
+        handle.user_data = handle.overlay_file_operations.as_ref().unwrap().open(minor);
         handle
     }
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize> {

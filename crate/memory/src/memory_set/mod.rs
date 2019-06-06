@@ -124,10 +124,13 @@ pub struct MemorySet<T: PageTableExt> {
 impl<T: PageTableExt> MemorySet<T> {
     /// Create a new `MemorySet`
     pub fn new() -> Self {
-        MemorySet {
+        info!("new memoryset");
+        let ret=MemorySet {
             areas: Vec::new(),
             page_table: T::new(),
-        }
+        };
+        info!("done");
+        ret
     }
     /// Create a new `MemorySet` for kernel remap
     pub fn new_bare() -> Self {

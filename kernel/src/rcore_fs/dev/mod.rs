@@ -1,6 +1,8 @@
 use crate::rcore_fs::util::BlockIter;
 use crate::rcore_fs::vfs::Timespec;
 use crate::util::*;
+use alloc::sync::Arc;
+use crate::rcore_fs::{dev, vfs};
 
 pub mod block_cache;
 pub mod std_impl;
@@ -19,7 +21,9 @@ pub trait Device: Send + Sync {
 
 /// Device which can only R/W in blocks
 pub trait BlockDevice: Send + Sync {
-    const BLOCK_SIZE_LOG2: u8;
+    fn block_size_log2(&self)->u8{
+        9
+    }
     fn read_at(&self, block_id: BlockId, buf: &mut [u8]) -> Result<()>;
     fn write_at(&self, block_id: BlockId, buf: &[u8]) -> Result<()>;
     fn sync(&self) -> Result<()>;
@@ -42,28 +46,31 @@ macro_rules! try0 {
     };
 }
 
+// "The wrapper that allows random access to a block device by reading and writing in linear order."
+// This is not a trivial thing! We have to take it out.
+pub struct WriteThroughRandomBlockDevice(pub Arc<BlockDevice>);
+
 /// Helper functions to R/W BlockDevice in bytes
-impl<T: BlockDevice> Device for T {
-    fn read_at(&self, offset: usize, buf: &mut [u8]) -> Result<usize> {
+impl Device for WriteThroughRandomBlockDevice {
+    fn read_at(&self, offset: usize, buf: &mut [u8]) -> dev::Result<usize> {
         let iter = BlockIter {
             begin: offset,
             end: offset + buf.len(),
-            block_size_log2: Self::BLOCK_SIZE_LOG2,
+            block_size_log2: self.0.block_size_log2(),
         };
-
         // For each block
         for range in iter {
             let len = range.origin_begin() - offset;
             let buf = &mut buf[range.origin_begin() - offset..range.origin_end() - offset];
             if range.is_full() {
                 // Read to target buf directly
-                try0!(len, BlockDevice::read_at(self, range.block, buf));
+                try0!(len, self.0.read_at(range.block, buf));
             } else {
                 use core::mem::uninitialized;
                 let mut block_buf: [u8; 1 << 10] = unsafe { uninitialized() };
-                assert!(Self::BLOCK_SIZE_LOG2 <= 10);
+                assert!(self.0.block_size_log2() <= 10);
                 // Read to local buf first
-                try0!(len, BlockDevice::read_at(self, range.block, &mut block_buf));
+                try0!(len, self.0.read_at(range.block, &mut block_buf));
                 // Copy to target buf then
                 buf.copy_from_slice(&mut block_buf[range.begin..range.end]);
             }
@@ -71,37 +78,36 @@ impl<T: BlockDevice> Device for T {
         Ok(buf.len())
     }
 
-    fn write_at(&self, offset: usize, buf: &[u8]) -> Result<usize> {
+    fn write_at(&self, offset: usize, buf: &[u8]) -> dev::Result<usize> {
         let iter = BlockIter {
             begin: offset,
             end: offset + buf.len(),
-            block_size_log2: Self::BLOCK_SIZE_LOG2,
+            block_size_log2: self.0.block_size_log2(),
         };
-
         // For each block
         for range in iter {
             let len = range.origin_begin() - offset;
             let buf = &buf[range.origin_begin() - offset..range.origin_end() - offset];
             if range.is_full() {
                 // Write to target buf directly
-                try0!(len, BlockDevice::write_at(self, range.block, buf));
+                try0!(len, self.0.write_at(range.block, buf));
             } else {
                 use core::mem::uninitialized;
                 let mut block_buf: [u8; 1 << 10] = unsafe { uninitialized() };
-                assert!(Self::BLOCK_SIZE_LOG2 <= 10);
+                assert!(self.0.block_size_log2() <= 10);
                 // Read to local buf first
-                try0!(len, BlockDevice::read_at(self, range.block, &mut block_buf));
+                try0!(len, self.0.read_at(range.block, &mut block_buf));
                 // Write to local buf
                 block_buf[range.begin..range.end].copy_from_slice(buf);
                 // Write back to target buf
-                try0!(len, BlockDevice::write_at(self, range.block, &block_buf));
+                try0!(len, self.0.write_at(range.block, &mut block_buf));
             }
         }
         Ok(buf.len())
     }
 
-    fn sync(&self) -> Result<()> {
-        BlockDevice::sync(self)
+    fn sync(&self) -> dev::Result<()> {
+        self.0.sync()
     }
 }
 
@@ -111,7 +117,9 @@ mod test {
     use std::sync::Mutex;
 
     impl BlockDevice for Mutex<[u8; 16]> {
-        const BLOCK_SIZE_LOG2: u8 = 2;
+        fn block_size_log2(&self)->u8{
+            2
+        }
         fn read_at(&self, block_id: BlockId, buf: &mut [u8]) -> Result<()> {
             if block_id >= 4 {
                 return Err(DevError);
@@ -183,5 +191,11 @@ mod test {
             *buf.lock().unwrap(),
             [0, 0, 0, 3, 4, 5, 6, 7, 8, 0, 0, 3, 4, 5, 6, 7]
         );
+    }
+}
+
+impl From<dev::DevError> for vfs::FsError{
+    fn from(_: DevError) -> Self {
+        vfs::FsError::DeviceError
     }
 }

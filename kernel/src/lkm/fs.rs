@@ -9,6 +9,7 @@ use alloc::collections::btree_map::BTreeMap;
 use spin::RwLock;
 use crate::lkm::api::cstr_to_str;
 use alloc::vec::Vec;
+use crate::syscall::Syscall;
 //use crate::lkm::ramfs::RamFSBehav;
 
 // The basic idea behind the INode-struct is that the INode-struct in memory works as a cache.
@@ -148,6 +149,8 @@ impl FileSystemManager{
         unsafe{
             FS_MANAGER=Some(RwLock::new(FileSystemManager::new()));
         }
+        let mut fsm=Self::get().write();
+        //fsm.registerFileSystem("sfs", crate::rcore_fs_sfs::SimpleFileSystemType{});
         //RamFSBehav::registerRamFS();
     }
     pub fn get()->&'static RwLock<FileSystemManager>{
@@ -156,22 +159,22 @@ impl FileSystemManager{
     pub fn registerFileSystem<T: FileSystemType + 'static>(&mut self, name: &str, fstype: T){
         self.fstypes.insert(String::from(name), Box::new(fstype));
     }
-    pub fn mountFilesystem(&self, source: &str, fstype: &str, flags: u64, data: usize)->Result<Arc<FileSystem>> {
+    pub fn mountFilesystem(&self, syscall: &mut Syscall, source: &str, fstype: &str, flags: u64, data: usize)->Result<Arc<FileSystem>> {
         if self.fstypes.contains_key(fstype){
             let fst=self.fstypes.get(fstype).unwrap();
-            fst.mount(source, flags, data)
+            fst.mount(syscall, source, flags, data)
         }else {Err(FsError::InvalidParam)}
     }
 }
 pub trait FileSystemType{
-    fn mount(&self, source: &str, flags: u64, data: usize)->Result<Arc<FileSystem>>;
+    fn mount(&self, syscall: &mut Syscall, source: &str, flags: u64, data: usize)->Result<Arc<FileSystem>>;
 }
 struct ExternFileSystemType{
     operations: Arc<FilesystemOperations>,
     inode_operations: Arc<INodeOperations>
 }
 impl FileSystemType for ExternFileSystemType{
-    fn mount(&self, source: &str, flags: u64, data: usize)->Result<Arc<FileSystem>>{
+    fn mount(&self, syscall: &mut Syscall, source: &str, flags: u64, data: usize)->Result<Arc<FileSystem>>{
         let mut result:usize=0;
         let mut efs=(Arc::new(ExternFilesystem{
             operations: Arc::clone(&self.operations),

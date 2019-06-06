@@ -29,7 +29,7 @@ impl<T: BlockDevice> BlockCache<T> {
         bufs.resize_with(capacity, || {
             Mutex::new(Buf {
                 status: BufStatus::Unused,
-                data: vec![0; 1 << T::BLOCK_SIZE_LOG2 as usize],
+                data: vec![0; 1 << device.block_size_log2() as usize],
             })
         });
         let lru = Mutex::new(LRU::new(capacity));
@@ -89,8 +89,9 @@ impl<T: BlockDevice> Drop for BlockCache<T> {
 }
 
 impl<T: BlockDevice> BlockDevice for BlockCache<T> {
-    const BLOCK_SIZE_LOG2: u8 = T::BLOCK_SIZE_LOG2;
-
+    fn block_size_log2(&self)->u8{
+        self.device.block_size_log2()
+    }
     fn read_at(&self, block_id: BlockId, buffer: &mut [u8]) -> Result<()> {
         let mut buf = self.get_buf(block_id);
         match buf.status {
@@ -101,7 +102,7 @@ impl<T: BlockDevice> BlockDevice for BlockCache<T> {
             }
             _ => {}
         }
-        let len = 1 << Self::BLOCK_SIZE_LOG2 as usize;
+        let len = 1 << self.block_size_log2() as usize;
         buffer[..len].copy_from_slice(&buf.data);
         Ok(())
     }
@@ -109,7 +110,7 @@ impl<T: BlockDevice> BlockDevice for BlockCache<T> {
     fn write_at(&self, block_id: BlockId, buffer: &[u8]) -> Result<()> {
         let mut buf = self.get_buf(block_id);
         buf.status = BufStatus::Dirty(block_id);
-        let len = 1 << Self::BLOCK_SIZE_LOG2 as usize;
+        let len = 1 << self.block_size_log2() as usize;
         buf.data.copy_from_slice(&buffer[..len]);
         Ok(())
     }

@@ -57,6 +57,9 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     // We first load kernel-module managers...
     // So that we can plug drivers in.
     // Startup ModuleManager.
+
+    use crate::arch::memory::init_kernel_kseg2_map;
+    init_kernel_kseg2_map();
     crate::lkm::manager::ModuleManager::init();
 
     // Startup CDevManager

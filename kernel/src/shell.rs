@@ -35,9 +35,11 @@ pub fn add_user_shell() {
     info!("RootFS on Raspi+!");
     let init_args = vec!["busybox".into(), "ash".into()];
     let root_path = PathConfig::init_root();
+    info!("root_path");
     if let Ok(PathResolveResult::IsFile { file: inode, .. }) =
         root_path.path_resolve(&root_path.root, "busybox", true)
     {
+        info!("resolved");
         processor().manager().add(Thread::new_user(
             &inode.inode,
             init_args,

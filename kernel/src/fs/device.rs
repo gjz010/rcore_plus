@@ -39,7 +39,9 @@ impl Device for MemBuf {
 
 #[cfg(target_arch = "x86_64")]
 impl BlockDevice for ide::IDE {
-    const BLOCK_SIZE_LOG2: u8 = 9;
+    fn block_size_log2(&self)->u8{
+        9
+    }
     fn read_at(&self, block_id: usize, buf: &mut [u8]) -> Result<()> {
         use core::slice;
         assert!(buf.len() >= ide::BLOCK_SIZE);

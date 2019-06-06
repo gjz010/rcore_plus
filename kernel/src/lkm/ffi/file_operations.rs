@@ -22,11 +22,12 @@ use crate::lkm::cdev::{CDevManager, CharDev, FileOperations};
 use crate::rcore_fs::vfs::{FsError, Metadata, PollStatus};
 use alloc::string::String;
 use alloc::sync::Arc;
+use core::any::Any;
 
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct FileOperationsFFI {
-    pub open: extern "C" fn() -> usize,
+    pub open: extern "C" fn(usize) -> usize,
     pub read: extern "C" fn(file: usize, buf: *mut u8, len: usize) -> isize,
     pub read_at: extern "C" fn(file: usize, offset: usize, buf: *mut u8, len: usize) -> isize,
     pub write: extern "C" fn(file: usize, buf: *const u8, len: usize) -> isize,
@@ -64,8 +65,8 @@ pub extern "C" fn lkm_api_register_device(config: *const CharDevFFI) -> usize {
 
 
 impl FileOperations for FileOperationsFFI{
-    fn open(&self) -> usize {
-        (self.open)()
+    fn open(&self, minor: usize) -> usize {
+        (self.open)(minor)
     }
 
     fn read(&self, fh: &mut FileHandle, buf: &mut [u8]) -> Result<usize, FsError> {
@@ -138,5 +139,9 @@ impl FileOperations for FileOperationsFFI{
 
     fn close(&self, data: usize) {
         (self.close)(data)
+    }
+
+    fn as_any_ref(&self) -> &Any {
+        self
     }
 }

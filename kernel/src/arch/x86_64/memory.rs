@@ -2,10 +2,11 @@ use super::{BootInfo, MemoryRegionType};
 use crate::memory::{init_heap, FRAME_ALLOCATOR};
 use bitmap_allocator::BitAlloc;
 use rcore_memory::paging::*;
-
+use crate::arch::paging::PageTableImpl;
 pub fn init(boot_info: &BootInfo) {
     init_frame_allocator(boot_info);
     init_heap();
+
     info!("memory: init end");
 }
 
@@ -20,6 +21,17 @@ fn init_frame_allocator(boot_info: &BootInfo) {
         }
     }
 }
+pub fn init_kernel_kseg2_map() {
+    let mut page_table = unsafe {PageTableImpl::kernel_table()};
+    // Dirty hack here:
+    // We do not really need the mapping. Indeed, we only need the second-level page table.
+    // Second-level page table item can then be copied to all page tables safely.
+    // This hack requires the page table not to recycle the second level page table on unmap.
+
+    page_table.map(0xfffffe8000000000, 0x0).update();
+    page_table.unmap(0xfffffe8000000000);
+}
+
 /*
 fn init_kernel_kseg2_map() {
     let mut page_table = active_table();

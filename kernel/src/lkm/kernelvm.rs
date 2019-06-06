@@ -159,7 +159,6 @@ impl VirtualArea {
         for p in Page::range_of(self.start, self.end) {
             parent.unmap( active_pt.deref_mut(), p.start_address());
         }
-        #[cfg(feature = "ipi")]
-        invoke_on_allcpu(tlb_shootdown, (self.start, self.end), true);
+        //invoke_on_allcpu(tlb_shootdown, (self.start, self.end), true);
     }
 }

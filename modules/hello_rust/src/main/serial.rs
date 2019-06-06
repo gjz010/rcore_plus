@@ -13,7 +13,6 @@ use alloc::string::String;
 use rcore::drivers::bus::pci as rcore_pci;
 use rcore::drivers::bus::pci::enable;
 use pci::BAR;
-use rcore::memory::active_table;
 use rcore::consts::KERNEL_OFFSET;
 use rcore::drivers::bus::pci::get_bar0_io;
 use rcore_memory::PAGE_SIZE;
@@ -167,7 +166,7 @@ impl Driver for PCISerial{
     }
 }
 impl FileOperations for PCISerialOps{
-    fn open(&self) -> usize {
+    fn open(&self, minor: usize) -> usize {
         info!("PCISerial opened.");
         0
     }
@@ -230,5 +229,8 @@ impl FileOperations for PCISerialOps{
 
     fn close(&self, data: usize) {
 
+    }
+    fn as_any_ref(&self)-> &Any{
+        self
     }
 }

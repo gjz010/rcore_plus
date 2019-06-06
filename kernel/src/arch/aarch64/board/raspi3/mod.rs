@@ -8,6 +8,7 @@ pub mod irq;
 pub mod mailbox;
 pub mod serial;
 pub mod timer;
+pub mod emmc;
 
 use fb::{ColorConfig, FramebufferResult};
 

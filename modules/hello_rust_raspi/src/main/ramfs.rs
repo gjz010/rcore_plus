@@ -1,6 +1,7 @@
 extern crate rcore;
 extern crate alloc;
 extern crate spin;
+use rcore::syscall::Syscall;
 use rcore::lkm::fs::FileSystemType;
 use alloc::sync::{Arc, Weak};
 use rcore::rcore_fs::vfs::{FileSystem, FsError, INode, PollStatus, Metadata, FileType, FsInfo, Timespec};
@@ -19,7 +20,7 @@ impl RamFSBehav{
 }
 struct LockedINode(RwLock<RamFSINode>);
 impl FileSystemType for RamFSBehav{
-    fn mount(&self, source: &str, flags: u64, data: usize) -> Result<Arc<FileSystem>, FsError> {
+    fn mount(&self, syscall: &mut Syscall, source: &str, flags: u64, data: usize) -> Result<Arc<FileSystem>, FsError> {
         let root=Arc::new(LockedINode(RwLock::new(RamFSINode{
             this: None,
             parent: None,

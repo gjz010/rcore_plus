@@ -94,7 +94,12 @@ impl Syscall<'_> {
             };*/
         }
     }
+    pub fn sys_mremap(&mut self, old_address: usize, old_size: usize, new_size: usize, flags: usize, new_address: usize) -> SysResult{
+        //info!("elf: {}", self.tf.elr);
+        panic!("mremap crash here");
+        Err(SysError::ENOMEM)
 
+    }
     pub fn sys_mprotect(&mut self, addr: usize, len: usize, prot: usize) -> SysResult {
         let prot = MmapProt::from_bits_truncate(prot);
         info!(

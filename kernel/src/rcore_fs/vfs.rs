@@ -31,7 +31,12 @@ pub trait INode: Any + Sync + Send {
     fn resize(&self, len: usize) -> Result<()>;
 
     /// Create a new INode in the directory
-    fn create(&self, name: &str, type_: FileType, mode: u32) -> Result<Arc<INode>>;
+    fn create(&self, name: &str, type_: FileType, mode: u32)->Result<Arc<INode>>{
+        self.create2(name, type_, mode, 0)
+    }
+    fn create2(&self, name: &str, type_: FileType, mode: u32,  rdev: usize) -> Result<Arc<INode>>{
+        self.create(name, type_, mode)
+    }
 
     /// Create a hard link `name` to `other`
     fn link(&self, name: &str, other: &Arc<INode>) -> Result<()>;
@@ -62,7 +67,7 @@ pub trait INode: Any + Sync + Send {
     // Stub implementation for setting an rdev.
     // This is ensured to be called after create.
     fn setrdev(&self, dev: u64) -> Result<()> {
-        unimplemented!()
+        Ok(())
     }
 }
 
@@ -219,6 +224,7 @@ use crate::drivers::BlockDriver;
 use crate::rcore_fs_sfs::SimpleFileSystem;
 use alloc::slice::*;
 use core::mem::*;
+use crate::rcore_fs::dev::WriteThroughRandomBlockDevice;
 
 type INodeId = usize;
 
@@ -278,14 +284,14 @@ impl RootFS {
         let device = {
             #[cfg(any(target_a = "riscv32", target_arch = "riscv64", target_arch = "x86_64"))]
             {
-                Arc::new(BlockDriver(
+                Arc::new(WriteThroughRandomBlockDevice(Arc::new(BlockDriver(
                     crate::drivers::BLK_DRIVERS
                         .read()
                         .iter()
                         .next()
                         .expect("Block device not found")
                         .clone(),
-                ))
+                ))))
             }
             #[cfg(target_arch = "aarch64")]
             {

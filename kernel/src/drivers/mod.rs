@@ -106,7 +106,9 @@ lazy_static! {
 pub struct BlockDriver(pub Arc<Driver>);
 
 impl BlockDevice for BlockDriver {
-    const BLOCK_SIZE_LOG2: u8 = 9; // 512
+    fn block_size_log2(&self)->u8{
+        9
+    }
     fn read_at(&self, block_id: usize, buf: &mut [u8]) -> dev::Result<()> {
         match self.0.read_block(block_id, buf) {
             true => Ok(()),
