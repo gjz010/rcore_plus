@@ -225,6 +225,8 @@ sym:
 
 $(bootloader): $(kernel)
 ifeq ($(arch), aarch64)
+	@echo "Patching symbols into kernel."
+	../tools/fill_symbols/aarch64.sh target/aarch64/release/rcore
 	@echo Building $(arch) bootloader
 	@$(strip) $(kernel) -o $(kernel)_stripped
 	@cd $(bootloader_dir) && make arch=$(arch) mode=$(mode) payload=../kernel/$(kernel)_stripped
@@ -261,6 +263,10 @@ endif
 kernel:
 	@echo Building $(arch) kernel
 ifeq ($(arch), x86_64)
+	@bootimage build $(build_args)
+	@echo "Now patching kernel symbols onto kernel."
+	../tools/fill_symbols/x86_64.sh target/x86_64/release/rcore
+	@echo "Generate bootimage again."
 	@bootimage build $(build_args)
 	@mv target/x86_64/bootimage.bin $(bootimage)
 else ifeq ($(arch), riscv32)

@@ -24,3 +24,8 @@ kernel.iml
 .idea
 
 *.swp
+# for kernel module building
+# C & Rust
+modules/*/objs
+# Rust
+modules/*/target

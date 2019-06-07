@@ -12,6 +12,7 @@ use crate::drivers::provider;
 use isomorphic_drivers::provider::Provider;
 use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
+use lazy_static::lazy_static;
 #[cfg(target_arch = "aarch64")]
 use bcm2837::gpio;
 #[cfg(target_arch = "aarch64")]
@@ -91,7 +92,7 @@ lazy_static! {
 }
 
 #[cfg(target_arch = "aarch64")]
-lasy_static! {
+lazy_static! {
     pub static ref GPIO: Arc<GPIOOutput> = Arc::new(GPIOOutput::new(0));
     pub static ref DSP: Arc<Dsp> = Arc::new(Dsp::default());
 }
