@@ -3,14 +3,15 @@
 use alloc::{string::String, sync::Arc};
 use core::fmt;
 
+use crate::fs::vfs::INodeContainer;
+use crate::thread;
 use rcore_fs::vfs::{FsError, INode, Metadata, PollStatus, Result};
 
 #[derive(Clone)]
 pub struct FileHandle {
-    inode: Arc<INode>,
+    pub inode_container: Arc<INodeContainer>,
     offset: u64,
     options: OpenOptions,
-    pub path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -19,6 +20,7 @@ pub struct OpenOptions {
     pub write: bool,
     /// Before each write, the file offset is positioned at the end of the file.
     pub append: bool,
+    pub nonblock: bool,
 }
 
 #[derive(Debug)]
@@ -29,12 +31,11 @@ pub enum SeekFrom {
 }
 
 impl FileHandle {
-    pub fn new(inode: Arc<INode>, options: OpenOptions, path: String) -> Self {
+    pub fn new(inode_container: Arc<INodeContainer>, options: OpenOptions) -> Self {
         return FileHandle {
-            inode,
+            inode_container,
             offset: 0,
             options,
-            path,
         };
     }
 
@@ -48,13 +49,32 @@ impl FileHandle {
         if !self.options.read {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
-        let len = self.inode.read_at(offset, buf)?;
+        let mut len: usize = 0;
+        if !self.options.nonblock {
+            // block
+            loop {
+                match self.inode_container.read_at(offset, buf) {
+                    Ok(read_len) => {
+                        len = read_len;
+                        break;
+                    }
+                    Err(FsError::Again) => {
+                        thread::yield_now();
+                    }
+                    Err(err) => {
+                        return Err(err);
+                    }
+                }
+            }
+        } else {
+            len = self.inode_container.read_at(offset, buf)?;
+        }
         Ok(len)
     }
 
     pub fn write(&mut self, buf: &[u8]) -> Result<usize> {
         let offset = match self.options.append {
-            true => self.inode.metadata()?.size as u64,
+            true => self.inode_container.metadata()?.size as u64,
             false => self.offset,
         } as usize;
         let len = self.write_at(offset, buf)?;
@@ -66,14 +86,14 @@ impl FileHandle {
         if !self.options.write {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
-        let len = self.inode.write_at(offset, buf)?;
+        let len = self.inode_container.write_at(offset, buf)?;
         Ok(len)
     }
 
     pub fn seek(&mut self, pos: SeekFrom) -> Result<u64> {
         self.offset = match pos {
             SeekFrom::Start(offset) => offset,
-            SeekFrom::End(offset) => (self.inode.metadata()?.size as i64 + offset) as u64,
+            SeekFrom::End(offset) => (self.inode_container.metadata()?.size as i64 + offset) as u64,
             SeekFrom::Current(offset) => (self.offset as i64 + offset) as u64,
         };
         Ok(self.offset)
@@ -83,45 +103,41 @@ impl FileHandle {
         if !self.options.write {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
-        self.inode.resize(len as usize)?;
+        self.inode_container.resize(len as usize)?;
         Ok(())
     }
 
     pub fn sync_all(&mut self) -> Result<()> {
-        self.inode.sync_all()
+        self.inode_container.sync_all()
     }
 
     pub fn sync_data(&mut self) -> Result<()> {
-        self.inode.sync_data()
+        self.inode_container.sync_data()
     }
 
     pub fn metadata(&self) -> Result<Metadata> {
-        self.inode.metadata()
-    }
-
-    pub fn lookup_follow(&self, path: &str, max_follow: usize) -> Result<Arc<INode>> {
-        self.inode.lookup_follow(path, max_follow)
+        self.inode_container.metadata()
     }
 
     pub fn read_entry(&mut self) -> Result<String> {
         if !self.options.read {
             return Err(FsError::InvalidParam); // FIXME: => EBADF
         }
-        let name = self.inode.get_entry(self.offset as usize)?;
+        let name = self.inode_container.get_entry(self.offset as usize)?;
         self.offset += 1;
         Ok(name)
     }
 
     pub fn poll(&self) -> Result<PollStatus> {
-        self.inode.poll()
+        self.inode_container.poll()
     }
 
     pub fn io_control(&self, cmd: u32, arg: usize) -> Result<()> {
-        self.inode.io_control(cmd, arg)
+        self.inode_container.io_control(cmd, arg)
     }
 
-    pub fn inode(&self) -> Arc<INode> {
-        self.inode.clone()
+    pub fn inode(&self) -> Arc<INodeContainer> {
+        self.inode_container.clone()
     }
 }
 
@@ -131,7 +147,6 @@ impl fmt::Debug for FileHandle {
             .debug_struct("FileHandle")
             .field("offset", &self.offset)
             .field("options", &self.options)
-            .field("path", &self.path)
             .finish();
     }
 }

@@ -54,10 +54,9 @@ lazy_static!{
 
 }
 
-
-// Represents a contiguous virtual area: like the ancient loader.
-// Use RAII for exception handling
-pub struct VirtualSpace{
+/// Represents a contiguous virtual area: like the ancient loader.
+/// Use RAII for exception handling
+pub struct VirtualSpace {
     start: usize,
     size: usize,
     areas: Vec<VirtualArea>,

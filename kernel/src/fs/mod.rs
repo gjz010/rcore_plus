@@ -11,7 +11,10 @@ pub use self::file::*;
 pub use self::file_like::*;
 pub use self::pipe::Pipe;
 pub use self::pseudo::*;
-pub use self::stdio::*;
+pub use self::stdio::{STDIN, STDIN_INODE, STDOUT, STDOUT_INODE};
+//pub use self::vga::*;
+use core::mem::uninitialized;
+use spin::RwLock;
 
 mod device;
 mod file;
@@ -20,6 +23,8 @@ mod ioctl;
 mod pipe;
 mod pseudo;
 mod stdio;
+pub mod vfs;
+//  pub mod vga;
 
 /// Hard link user programs
 #[cfg(feature = "link_user")]
@@ -43,53 +48,6 @@ _blank_img_end:
 "#
 ));
 
-lazy_static! {
-    /// The root of file system
-    // pub static ref DEV;
-
-    pub static ref SFS: Arc<SimpleFileSystem> = {
-           #[cfg(not(feature = "link_user"))]
-        let device = {
-            #[cfg(any(target_arch = "riscv32", target_arch = "riscv64", target_arch = "x86_64"))]
-            {
-                let driver = BlockDriver(
-                    crate::drivers::BLK_DRIVERS
-                        .read().iter()
-                        .next().expect("Block device not found")
-                        .clone()
-                );
-                // enable block cache
-                Arc::new(BlockCache::new(driver, 0x100))
-                // Arc::new(driver)
-            }
-            #[cfg(target_arch = "aarch64")]
-            {
-                unimplemented!()
-            }
-        };
-        #[cfg(feature = "link_user")]
-        let device = {
-            extern {
-                fn _user_img_start();
-                fn _user_img_end();
-                fn _blank_img_start();
-                fn _blank_img_end();
-            }
-            info!("SFS linked to kernel, from {:08x} to {:08x}", _user_img_start as usize, _user_img_end as usize);
-            //add a blank img to enable create file
-            Arc::new(unsafe { device::MemBuf::new(_user_img_start, _blank_img_end) })
-        };
-
-        let sfs = SimpleFileSystem::open(device).expect("failed to open SFS");
-        sfs
-    };
-
-    pub static ref ROOT_INODE: Arc<INode> = {
-        let root = SFS.root_inode();
-        root
-    };
-}
-
 pub const FOLLOW_MAX_DEPTH: usize = 1;
 
 pub trait INodeExt {
@@ -108,27 +66,16 @@ impl INodeExt for INode {
     }
 }
 
+pub static mut VIRTUAL_FS: Option<Arc<RwLock<vfs::VirtualFS>>> = None;
+
 pub fn init() {
-    /*
-    let dev_inode = ROOT_INODE.create("dev", FileType::Dir, 0).expect("fail to create dev");
-    
-    SFS.new_device_inode(STDIN_ID, STDIN.clone());
-    SFS.new_device_inode(STDOUT_ID, STDOUT.clone());
-    SFS.new_device_inode(GPIO_ID, GPIO.clone());
-    SFS.new_device_inode(DSP_ID, DSP.clone());
+    unsafe {
+        VIRTUAL_FS = Some(vfs::VirtualFS::init());
+        // XXX: ???
+        vfs::ANONYMOUS_FS = Some(Arc::new(RwLock::new(unsafe { uninitialized() })));
+    }
+}
 
-    let dev_inode_impl = dev_inode.downcast_ref::<INodeImpl>().unwrap();
-
-    let stdin_inode = SFS.new_inode_chardevice(STDIN_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("stdin", &stdin_inode).unwrap();
-
-    let stdout_inode = SFS.new_inode_chardevice(STDOUT_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("stdout", &stdout_inode).unwrap();
-
-    let gpio_inode = SFS.new_inode_chardevice(GPIO_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("gpio", &gpio_inode).unwrap();
-
-    let dsp_inode = SFS.new_inode_chardevice(DSP_ID).unwrap();
-    dev_inode_impl.link_inodeimpl("dsp", &dsp_inode).unwrap();
-    */
+pub fn get_virtual_fs() -> &'static Arc<RwLock<vfs::VirtualFS>> {
+    unsafe { VIRTUAL_FS.as_ref().unwrap() }
 }
