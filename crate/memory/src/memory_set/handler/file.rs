@@ -67,7 +67,7 @@ impl<F: Read, T: FrameAllocator> MemoryHandler for File<F, T> {
         entry.set_target(frame);
         entry.set_present(true);
         entry.update();
-
+        info!("Uploading {:x}", addr);
         self.fill_data(pt, addr);
         true
     }

@@ -84,6 +84,7 @@ pub trait Entry {
     fn set_mmio(&mut self, value: u8);
 }
 
+
 /// Extra methods of `PageTable` for non-trait-object usage
 pub trait PageTableExt: PageTable + Sized {
     /// Create a new page table with kernel memory mapped
