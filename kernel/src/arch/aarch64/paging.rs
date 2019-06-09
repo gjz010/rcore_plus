@@ -17,7 +17,7 @@ use rcore_memory::paging::*;
 type Page = PageAllSizes<Size4KiB>;
 
 pub struct PageTableImpl {
-    page_table: MappedPageTable<'static, fn(Frame) -> *mut Aarch64PageTable>,
+    pub page_table: MappedPageTable<'static, fn(Frame) -> *mut Aarch64PageTable>,
     root_frame: Frame,
     entry: PageEntry,
 }
@@ -87,7 +87,9 @@ pub enum MMIOType {
 
 impl Entry for PageEntry {
     fn update(&mut self) {
-        tlb_invalidate(self.1.start_address());
+        info!("TLB_FLUSH_ALL for {:?}. Nothing bad should happen.", self.1.start_address());
+        tlb_invalidate_all()
+        //tlb_invalidate(self.1.start_address());
     }
 
     fn present(&self) -> bool {
@@ -285,3 +287,5 @@ impl FrameDeallocator<Size4KiB> for FrameAllocatorForAarch64 {
         dealloc_frame(frame.start_address().as_u64() as usize);
     }
 }
+
+
