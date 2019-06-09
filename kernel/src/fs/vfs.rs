@@ -12,7 +12,6 @@ use rcore_fs::vfs::Result;
 use rcore_fs::vfs::{FileSystem, FileType, FsError, INode};
 use rcore_fs_sfs::{INodeId, SimpleFileSystem};
 use spin::RwLock;
-use super::device;
 
 /// The filesystem on which all the other filesystems are mounted
 pub struct VirtualFS {
