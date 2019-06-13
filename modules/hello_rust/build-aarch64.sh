@@ -20,7 +20,8 @@ rustc --edition=2018 --crate-name hello_rust src/lib.rs \
 -L dependency=target/$ARCH/release/deps \
 -L dependency=target/release/deps \
 --emit=obj --sysroot target/sysroot \
--L all=../../kernel/target/$ARCH/release/deps
+-L all=../../kernel/target/$ARCH/release/deps \
+-C relocation-model=pic
 echo "Step 3. Packing the library into kernel module."
 "$PREFIX"objcopy --input binary --output $TEXT_TYPE \
     --binary-architecture $BIN_ARCH\

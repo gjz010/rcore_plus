@@ -199,7 +199,7 @@ impl INode for LockedINode {
         }
     }
 
-    fn create(&self, name: &str, type_: FileType, mode: u32) -> Result<Arc<INode>, FsError> {
+    fn create2(&self, name: &str, type_: FileType, mode: u32, data: usize) -> Result<Arc<INode>, FsError> {
         let mut file = self.0.write();
         if file.extra.type_ == FileType::Dir {
             if name == "." { return Err(FsError::EntryExist); }
@@ -228,7 +228,7 @@ impl INode for LockedINode {
                     nlinks: 0,
                     uid: 0,
                     gid: 0,
-                    rdev: 0
+                    rdev: data
                 },
                 fs: Weak::clone(&file.fs)
             })));
