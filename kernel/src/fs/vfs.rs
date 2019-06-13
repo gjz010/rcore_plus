@@ -42,7 +42,17 @@ impl VirtualFS {
         }
         .wrap()
     }
+    pub fn recursive_sync(lock: &RwLock<VirtualFS>)->Result<()>{
+        let myself=lock.read();
+        myself.filesystem.sync()?;
+        let sub_filesystems: Vec<Arc<RwLock<VirtualFS>>>=myself.mountpoints.iter().map(|(key, value)| {Arc::clone(value)} ).collect();
+        drop(myself);
+        for subfs in sub_filesystems.into_iter(){
+            VirtualFS::recursive_sync(subfs.as_ref())?;
+        }
+        Ok(())
 
+    }
     /// Wrap pure `VirtualFS` with `Arc<RwLock<..>>`.
     /// Used in constructors.
     pub fn wrap(self) -> Arc<RwLock<Self>> {

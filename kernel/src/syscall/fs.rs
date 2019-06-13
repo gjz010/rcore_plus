@@ -953,7 +953,7 @@ impl Syscall<'_> {
     pub fn sys_sync(&mut self) -> SysResult {
         //TODO: recursive sync
         //use crate::fs::vfs::VirtualFS;
-        get_virtual_fs().read().filesystem.sync()?;
+        VirtualFS::recursive_sync(get_virtual_fs().as_ref())?;
         Ok(0)
     }
 
