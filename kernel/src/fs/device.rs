@@ -9,6 +9,9 @@ use crate::arch::driver::ide;
 #[cfg(target_arch = "aarch64")]
 use crate::arch::board::emmc;
 use crate::sync::SpinNoIrqLock as Mutex;
+use alloc::sync::Arc;
+use rcore_fs::vfs::FsError::DeviceError;
+use rcore_fs::vfs::INode;
 
 pub struct MemBuf(RwLock<&'static mut [u8]>);
 
@@ -88,5 +91,57 @@ impl BlockDevice for EmmcDriver {
     }
     fn sync(&self) -> Result<()> {
         Ok(())
+    }
+}
+
+pub struct BlockINodeReader(pub Arc<INode>);
+
+impl BlockDevice for BlockINodeReader {
+    const BLOCK_SIZE_LOG2: u8 = 9;
+
+    fn read_at(&self, block_id: usize, buf: &mut [u8]) -> Result<()> {
+        info!(
+            "BlockINodeReader::read block_id={} buf.len()={}",
+            block_id,
+            buf.len()
+        );
+        let block_size = 1 << Self::BLOCK_SIZE_LOG2;
+        if buf.len() != block_size {
+            return Err(DevError);
+        }
+        if self
+            .0
+            .read_at(block_id * block_size, buf)
+            .map_err(|_| DevError)?
+            != block_size
+        {
+            return Err(DevError);
+        }
+        Ok(())
+    }
+
+    fn write_at(&self, block_id: usize, buf: &[u8]) -> Result<()> {
+        info!(
+            "BlockINodeReader::write block_id={} buf.len()={}",
+            block_id,
+            buf.len()
+        );
+        let block_size = 1 << Self::BLOCK_SIZE_LOG2;
+        if buf.len() != block_size {
+            return Err(DevError);
+        }
+        if self
+            .0
+            .write_at(block_id * block_size, buf)
+            .map_err(|_| DevError)?
+            != block_size
+        {
+            return Err(DevError);
+        }
+        Ok(())
+    }
+
+    fn sync(&self) -> Result<()> {
+        self.0.sync_data().map_err(|_| DevError)
     }
 }

@@ -26,8 +26,7 @@ impl FileSystemManager {
             FS_MANAGER = Some(RwLock::new(FileSystemManager::new()));
         }
         let mut fsm = Self::get().write();
-        //fsm.registerFileSystem("sfs", crate::rcore_fs_sfs::SimpleFileSystemType{});
-        //RamFSBehav::registerRamFS();
+        fsm.registerFileSystem("sfs", crate::fs::sfs_wrapper::SFSWrapper);
     }
     pub fn get() -> &'static RwLock<FileSystemManager> {
         unsafe { FS_MANAGER.as_ref().unwrap() }

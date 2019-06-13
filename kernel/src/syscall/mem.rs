@@ -6,6 +6,7 @@ use crate::memory::GlobalFrameAlloc;
 
 use super::*;
 use crate::fs::vfs::INodeContainer;
+use crate::lkm::device::INodeExtraOps;
 
 impl Syscall<'_> {
     pub fn sys_mmap(
@@ -17,6 +18,7 @@ impl Syscall<'_> {
         fd: usize,
         offset: usize,
     ) -> SysResult {
+        let prot_flags = prot;
         let prot = MmapProt::from_bits_truncate(prot);
         let flags = MmapFlags::from_bits_truncate(flags);
         info!(
@@ -61,17 +63,13 @@ impl Syscall<'_> {
             //   while mmap() is used for mapping Memory mapped I/O into user space.)
             let ic = file.inode();
             let inode = Arc::clone(&ic.inode);
-            self.vm().push(
+            use crate::lkm::device::INodeExtraOps;
+            let mmap_handler = inode.mmap(addr, addr + len, prot_flags, offset)?;
+            self.vm().push_box(
                 addr,
                 addr + len,
                 prot.to_attr(),
-                File {
-                    file: INodeForMap(inode),
-                    mem_start: addr,
-                    file_start: offset,
-                    file_end: offset + len,
-                    allocator: GlobalFrameAlloc,
-                },
+                mmap_handler.into(),
                 "mmap_file",
             );
             return Ok(addr);

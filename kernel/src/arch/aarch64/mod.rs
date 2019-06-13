@@ -26,6 +26,7 @@ pub extern "C" fn rust_main() -> ! {
     interrupt::init();
     memory::init();
     crate::lkm::manager::ModuleManager::init();
+    crate::lkm::device::CDevManager::init();
     driver::init();
     // start vfs.
     // TODO: Starting vfs here is too late.

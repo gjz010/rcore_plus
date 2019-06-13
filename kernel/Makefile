@@ -32,7 +32,7 @@
 #   init = /bin/ls               Only available on riscv64, run specified program instead of user shell
 #   extra_nic = on | off         Only available on x86_64, add an additional e1000 nic
 # . extra_features = profile | ... Add additional features
-
+#   sd = <path to sdcard img>    Only available on aarch64, specify a sd card image.
 arch ?= riscv64
 board ?= none
 mode ?= release
@@ -171,8 +171,11 @@ else ifeq ($(arch), aarch64)
 qemu_opts += \
 	-machine $(board) \
 	-serial null -serial mon:stdio \
-	-kernel $(kernel_img) \
-	-sd $(kernel_img)
+	-kernel $(kernel_img)
+ifneq ($(sd), )
+qemu_opts += \
+	-sd $(sd)
+endif
 
 else ifeq ($(arch), mipsel)
 ifeq ($(board), malta)

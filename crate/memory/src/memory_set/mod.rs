@@ -202,6 +202,17 @@ impl<T: PageTableExt> MemorySet<T> {
         handler: impl MemoryHandler,
         name: &'static str,
     ) {
+        self.push_box(start_addr, end_addr, attr, Box::new(handler), name)
+    }
+    /// Add an area to this set
+    pub fn push_box(
+        &mut self,
+        start_addr: VirtAddr,
+        end_addr: VirtAddr,
+        attr: MemoryAttr,
+        handler: Box<MemoryHandler>,
+        name: &'static str,
+    ) {
         assert!(start_addr <= end_addr, "invalid memory area");
         assert!(
             self.test_free_area(start_addr, end_addr),
@@ -211,7 +222,7 @@ impl<T: PageTableExt> MemorySet<T> {
             start_addr,
             end_addr,
             attr,
-            handler: Box::new(handler),
+            handler,
             name,
         };
         area.map(&mut self.page_table);

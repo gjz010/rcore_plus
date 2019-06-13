@@ -1423,8 +1423,15 @@ impl EmmcCtl {
     }
 }
 
+use crate::fs::mbr::MBRPartitionTable;
+use crate::fs::vfs::INodeContainer;
+use crate::lkm::device::{DeviceFileProvider, DeviceHandle, OverlaidINode};
+use alloc::boxed::Box;
+use alloc::sync::Arc;
+use core::any::Any;
+use rcore_fs::vfs::{FsError, PollStatus};
+use rcore_memory::memory_set::handler::MemoryHandler;
 use spin::Mutex;
-
 lazy_static! {
     pub static ref EMMC_CTL: Mutex<EmmcCtl> = Mutex::new(EmmcCtl::new());
 }
@@ -1570,10 +1577,130 @@ pub fn init() {
     debug!("Initializing EmmcCtl...");
     if EMMC_CTL.lock().init() == 0 {
         debug!("EmmcCtl successfully initialized.");
-        //demo();
+        demo();
         //demo_write();
         info!("emmc: init end");
     } else {
         info!("emmc: init failed");
+    }
+}
+
+pub struct EmmcDeviceHandle(Mutex<EmmcCtl>);
+pub struct EmmcDriver(Arc<DeviceHandle>);
+impl EmmcDriver {
+    fn new() -> Self {
+        let handle = EmmcDeviceHandle(Mutex::new(EmmcCtl::new()));
+        assert_eq!(handle.0.lock().init(), 0);
+        EmmcDriver(Arc::new(handle))
+    }
+    pub fn init() {
+        // Init emmc device.
+        let emmc = Self::new();
+
+        // Create device file provider
+        let driver = Box::new(emmc);
+        // Read MBR partitions
+        let mbr_driver = MBRPartitionTable::new(driver);
+        // Install into cdevmanager.
+        let mut cdev = crate::lkm::device::CDevManager::get().write();
+        cdev.registerDevice(179, Box::new(mbr_driver));
+    }
+}
+impl DeviceFileProvider for EmmcDriver {
+    fn open(&self, minor: usize) -> Option<Arc<DeviceHandle>> {
+        if minor == 0 {
+            Some(Arc::clone(&self.0))
+        } else {
+            info!("Bad minor!");
+            None
+        }
+    }
+}
+
+impl DeviceHandle for EmmcDeviceHandle {
+    fn read_at(
+        &self,
+        offset: usize,
+        buf: &mut [u8],
+        original_file: Option<&OverlaidINode>,
+    ) -> Result<usize, FsError> {
+        info!("EmmcDeviceHandle::offset {}, buf[{}]", offset, buf.len());
+        let block_id = if (offset & (BLOCK_SIZE - 1)) == 0 && buf.len() == BLOCK_SIZE {
+            offset >> 9
+        } else {
+            return Err(FsError::InvalidParam);
+        };
+        use core::slice;
+        assert!(buf.len() >= BLOCK_SIZE);
+        let buf = unsafe { slice::from_raw_parts_mut(buf.as_ptr() as *mut u32, BLOCK_SIZE / 4) };
+        let mut ctrl = self.0.lock();
+        info!("Read...");
+        ctrl.read(block_id as u32, 1, buf)
+            .map_err(|_| FsError::DeviceError)?;
+        info!("Read!");
+        Ok(buf.len() * 4)
+    }
+
+    fn write_at(
+        &self,
+        offset: usize,
+        buf: &[u8],
+        original_file: Option<&OverlaidINode>,
+    ) -> Result<usize, FsError> {
+        let block_id = if (offset & (BLOCK_SIZE - 1)) == 0 && buf.len() == BLOCK_SIZE {
+            offset >> 9
+        } else {
+            return Err(FsError::InvalidParam);
+        };
+        use core::slice;
+        assert!(buf.len() >= BLOCK_SIZE);
+        let buf = unsafe { slice::from_raw_parts(buf.as_ptr() as *mut u32, BLOCK_SIZE / 4) };
+        let mut ctrl = self.0.lock();
+        ctrl.write(block_id as u32, 1, buf)
+            .map_err(|_| FsError::DeviceError)?;
+        Ok(buf.len() * 4)
+    }
+
+    fn poll(&self, original_file: Option<&OverlaidINode>) -> Result<PollStatus, FsError> {
+        Ok(PollStatus {
+            read: true,
+            write: true,
+            error: true,
+        })
+    }
+
+    fn sync_data(&self, original_file: Option<&OverlaidINode>) -> Result<(), FsError> {
+        Ok(())
+    }
+
+    fn io_control(
+        &self,
+        cmd: u32,
+        data: usize,
+        original_file: Option<&OverlaidINode>,
+    ) -> Result<(), FsError> {
+        Err(FsError::NotSupported)
+    }
+
+    fn as_any_ref(&self) -> &Any {
+        self
+    }
+
+    fn mmap(
+        &self,
+        start_addr: usize,
+        end_addr: usize,
+        prot: usize,
+        offset: usize,
+        original_file: Option<&OverlaidINode>,
+    ) -> Result<Box<MemoryHandler>, FsError> {
+        Err(FsError::NotSupported)
+    }
+
+    fn overrideSymbolLink(
+        &self,
+        original_file: Option<&OverlaidINode>,
+    ) -> Option<Arc<INodeContainer>> {
+        None
     }
 }

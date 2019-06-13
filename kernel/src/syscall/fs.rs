@@ -383,6 +383,7 @@ impl Syscall<'_> {
         //use crate::fs::VIRTUAL_FS;
         use crate::fs::vfs::VirtualFS;
         use spin::RwLock;
+        info!("Going backward");
         // TODO: a more graceful and natural implementation?
         let mut current_inode = Arc::clone(&proc.cwd.cwd);
         let root_inode_id = proc.cwd.root.inode.metadata().unwrap().inode;
@@ -396,19 +397,20 @@ impl Syscall<'_> {
                 && current_inode_id == root_inode_id
             {
                 //Reaching our root;
-                //Reaching our root
+                info!("Reaching our root");
                 break;
-            } else if Arc::ptr_eq(&total_root_vfs.vfs, &proc.cwd.root.vfs)
+            } else if Arc::ptr_eq(&total_root_vfs.vfs, &current_inode.vfs)
                 && current_inode_id == total_inode_id
             {
                 //Reaching total root before our root.
-                //Reaching total root
+                info!("Reaching total root");
                 unreachable = true;
                 break;
             } else {
                 //Safe to go down a stair.
                 let parent = unsafe { proc.cwd.force_resolve_parent(&current_inode) };
                 let name = parent.find_name_by_child(&current_inode)?;
+                info!("{}", name);
                 path_parts.push(name);
                 current_inode = parent;
             }
@@ -812,9 +814,10 @@ impl Syscall<'_> {
 
                 // TODO: current sfs impl does not allow creating CharDevice file.
                 // Fix this.
-                let inode = parent
-                    .inode
-                    .create(&file_name, FileType::CharDevice, mode as u32)?;
+                let inode =
+                    parent
+                        .inode
+                        .create2(&file_name, FileType::CharDevice, mode as u32, dev)?;
                 return Ok(0);
             }
         }
@@ -969,13 +972,14 @@ impl Syscall<'_> {
         info!("mount: target: {}", target);
         let ret = match proc.cwd.path_resolve(&proc.cwd.cwd, &target, false)? {
             PathResolveResult::IsDir { dir } => {
-                let mut vfs = dir.vfs.write();
                 let mtpt_inode = dir.inode.metadata().unwrap().inode;
                 let source = unsafe { check_and_clone_cstr(source)? };
                 let fstype = unsafe { check_and_clone_cstr(fstype)? };
                 let fsm = FileSystemManager::get().read();
                 drop(proc);
+                info!("Start mounting");
                 let fs = fsm.mountFilesystem(self, &source, &fstype, flags as u64, data)?;
+                let mut vfs = dir.vfs.write();
                 let new_vfs = VirtualFS {
                     filesystem: fs,
                     mountpoints: BTreeMap::new(),

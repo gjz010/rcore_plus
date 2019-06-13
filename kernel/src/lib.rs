@@ -10,6 +10,7 @@
 #![feature(maybe_uninit)]
 #![feature(arbitrary_self_types)]
 #![feature(slice_concat_ext)]
+#![feature(specialization)]
 #![deny(unused_must_use)]
 #![no_std]
 

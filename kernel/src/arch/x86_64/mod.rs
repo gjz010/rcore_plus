@@ -58,6 +58,7 @@ pub extern "C" fn _start(boot_info: &'static BootInfo) -> ! {
     cpu::init();
     // now we can start LKM.
     crate::lkm::manager::ModuleManager::init();
+    crate::lkm::device::CDevManager::init();
     // Use IOAPIC instead of PIC, use APIC Timer instead of PIT, init serial&keyboard in x86_64
     driver::init(boot_info);
     // init pci/bus-based devices ,e.g. Intel 10Gb NIC, ...

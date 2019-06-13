@@ -15,16 +15,17 @@ pub use self::vga::*;
 use core::mem::uninitialized;
 use spin::RwLock;
 
-mod device;
+pub mod device;
 mod file;
 mod file_like;
 mod ioctl;
+pub mod mbr;
 mod pipe;
 mod pseudo;
+pub mod sfs_wrapper;
 mod stdio;
 pub mod vfs;
 pub mod vga;
-
 // Hard link user programs
 #[cfg(feature = "link_user")]
 global_asm!(concat!(

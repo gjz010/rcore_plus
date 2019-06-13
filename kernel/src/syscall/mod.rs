@@ -122,6 +122,7 @@ impl Syscall<'_> {
                 self.sys_renameat(args[0], args[1] as *const u8, args[2], args[3] as *const u8)
             }
             SYS_MKDIRAT => self.sys_mkdirat(args[0], args[1] as *const u8, args[2]),
+            SYS_MKNODAT => self.sys_mknodat(args[0], args[1] as *const u8, args[2], args[3]),
             SYS_LINKAT => self.sys_linkat(
                 args[0],
                 args[1] as *const u8,
