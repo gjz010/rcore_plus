@@ -12,10 +12,13 @@ use crate::drivers::provider;
 use isomorphic_drivers::provider::Provider;
 use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
-
+#[cfg(target_arch = "aarch64")]
 use bcm2837::gpio;
+#[cfg(target_arch = "aarch64")]
 use bcm2837::pwm;
+#[cfg(target_arch = "aarch64")]
 use bcm2837::dma;
+#[cfg(target_arch = "aarch64")]
 use bcm2837::timer;
 
 #[derive(Default)]
@@ -57,16 +60,17 @@ impl Stdin {
 #[derive(Default)]
 pub struct Stdout;
 
+#[cfg(target_arch = "aarch64")]
 #[derive(Default)]
 pub struct Dsp {
     buf: Mutex<Vec<u8>>
 }
-
+#[cfg(target_arch = "aarch64")]
 #[derive(Default)]
 pub struct GPIOOutput {
     pin: RwLock<u8>
 }
-
+#[cfg(target_arch = "aarch64")]
 impl GPIOOutput {
     fn new(init_pin: u8) -> Self {
         GPIOOutput {
@@ -84,10 +88,13 @@ pub const DSP_ID: usize = 4;
 lazy_static! {
     pub static ref STDIN: Arc<Stdin> = Arc::new(Stdin::default());
     pub static ref STDOUT: Arc<Stdout> = Arc::new(Stdout::default());
+}
+
+#[cfg(target_arch = "aarch64")]
+lasy_static! {
     pub static ref GPIO: Arc<GPIOOutput> = Arc::new(GPIOOutput::new(0));
     pub static ref DSP: Arc<Dsp> = Arc::new(Dsp::default());
 }
-
 // TODO: better way to provide default impl?
 macro_rules! impl_inode {
     () => {
@@ -181,6 +188,7 @@ impl INode for Stdout {
     impl_inode!();
 }
 
+#[cfg(target_arch = "aarch64")]
 impl INode for Dsp {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize> {
         unimplemented!()
@@ -261,6 +269,7 @@ impl INode for Dsp {
 }
 
 
+#[cfg(target_arch = "aarch64")]
 impl INode for GPIOOutput {
     fn read_at(&self, _offset: usize, _buf: &mut [u8]) -> Result<usize> {
         unimplemented!()

@@ -109,6 +109,7 @@ impl INodeExt for INode {
 }
 
 pub fn init() {
+    /*
     let dev_inode = ROOT_INODE.create("dev", FileType::Dir, 0).expect("fail to create dev");
     
     SFS.new_device_inode(STDIN_ID, STDIN.clone());
@@ -129,4 +130,5 @@ pub fn init() {
 
     let dsp_inode = SFS.new_inode_chardevice(DSP_ID).unwrap();
     dev_inode_impl.link_inodeimpl("dsp", &dsp_inode).unwrap();
+    */
 }

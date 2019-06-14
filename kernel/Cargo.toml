@@ -66,10 +66,10 @@ smoltcp = { git = "https://github.com/rcore-os/smoltcp", default-features = fals
 bitmap-allocator = { git = "https://github.com/rcore-os/bitmap-allocator" }
 rcore-memory = { path = "../crate/memory" }
 rcore-thread = { git = "https://github.com/rcore-os/rcore-thread" }
-# rcore-fs = { git = "https://github.com/rcore-os/rcore-fs" }
-# rcore-fs-sfs = { git = "https://github.com/rcore-os/rcore-fs" }
-rcore-fs = { path = "../../rcore-fs/rcore-fs" }
-rcore-fs-sfs = { path = "../../rcore-fs/rcore-fs-sfs" }
+rcore-fs = { git = "https://github.com/rcore-os/rcore-fs" }
+rcore-fs-sfs = { git = "https://github.com/rcore-os/rcore-fs" }
+# rcore-fs = { path = "../../rcore-fs/rcore-fs" }
+# rcore-fs-sfs = { path = "../../rcore-fs/rcore-fs-sfs" }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 bootloader = { git = "https://github.com/rcore-os/bootloader" }
@@ -85,7 +85,7 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64 = { git = "https://github.com/rcore-os/aarch64", version = "2.5.0" }
 #bcm2837 = { git = "https://github.com/rcore-os/bcm2837", version = "1.0.0", optional = true }
-bcm2837 = { path = "../../bcm2837", optional = true }
+bcm2837 = { git = "https://github.com/gaotianyu1350/bcm2837", optional = true }
 
 [target.'cfg(target_arch = "mips")'.dependencies]
 mips = "^0.2.0"

@@ -934,6 +934,7 @@ impl From<FsError> for SysError {
             FsError::DeviceError => SysError::EIO,
             FsError::NoDevice => SysError::EIO,
             FsError::IOCTLError => SysError::EIO,
+            _ => SysError::EIO
         }
     }
 }

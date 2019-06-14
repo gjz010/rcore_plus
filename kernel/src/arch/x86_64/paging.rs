@@ -213,9 +213,11 @@ impl InactivePageTable for InactivePageTable0 {
         // Kernel stack at 0x0000_57ac_0000_0000 (defined in bootloader crate)
         let e510 = table[510].clone();
         let estack = table[175].clone();
+        let ekseg2 = table[509].clone();
         self.edit(|_| {
             table[510].set_addr(e510.addr(), e510.flags() | EF::GLOBAL);
             table[175].set_addr(estack.addr(), estack.flags() | EF::GLOBAL);
+            table[509].set_addr(ekseg2.addr(), estack.flags() | EF::GLOBAL);
         });
     }
 

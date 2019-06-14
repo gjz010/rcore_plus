@@ -41,6 +41,7 @@ dependencies = [
 [[package]]
 name = "bcm2837"
 version = "1.0.0"
+source = "git+https://github.com/gaotianyu1350/bcm2837#9dfde0d54ef93737e89c7a296e1a3a4d4faa7968"
 dependencies = [
  "aarch64 2.5.0 (git+https://github.com/rcore-os/aarch64)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -349,7 +350,7 @@ version = "0.2.0"
 dependencies = [
  "aarch64 2.5.0 (git+https://github.com/rcore-os/aarch64)",
  "apic 0.1.0 (git+https://github.com/rcore-os/apic-rs)",
- "bcm2837 1.0.0",
+ "bcm2837 1.0.0 (git+https://github.com/gaotianyu1350/bcm2837)",
  "bit_field 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitmap-allocator 0.1.0 (git+https://github.com/rcore-os/bitmap-allocator)",
@@ -368,8 +369,8 @@ dependencies = [
  "pc-keyboard 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pci 0.0.1 (git+https://github.com/rcore-os/pci-rs)",
  "raw-cpuid 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "rcore-fs 0.1.0",
- "rcore-fs-sfs 0.1.0",
+ "rcore-fs 0.1.0 (git+https://github.com/rcore-os/rcore-fs)",
+ "rcore-fs-sfs 0.1.0 (git+https://github.com/rcore-os/rcore-fs)",
  "rcore-memory 0.1.0",
  "rcore-thread 0.1.0 (git+https://github.com/rcore-os/rcore-thread)",
  "riscv 0.5.0 (git+https://github.com/rcore-os/riscv)",
@@ -384,6 +385,7 @@ dependencies = [
 [[package]]
 name = "rcore-fs"
 version = "0.1.0"
+source = "git+https://github.com/rcore-os/rcore-fs#b098983155c9a26e36ae9d07e8eb3dac250a5cc6"
 dependencies = [
  "spin 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -391,10 +393,11 @@ dependencies = [
 [[package]]
 name = "rcore-fs-sfs"
 version = "0.1.0"
+source = "git+https://github.com/rcore-os/rcore-fs#b098983155c9a26e36ae9d07e8eb3dac250a5cc6"
 dependencies = [
  "bitvec 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
- "rcore-fs 0.1.0",
+ "rcore-fs 0.1.0 (git+https://github.com/rcore-os/rcore-fs)",
  "spin 0.4.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "static_assertions 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -642,6 +645,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum apic 0.1.0 (git+https://github.com/rcore-os/apic-rs)" = "<none>"
 "checksum array-init 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "23589ecb866b460d3a0f1278834750268c607e8e28a1b982c907219f3178cd72"
 "checksum bare-metal 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)" = "a3caf393d93b2d453e80638d0674597020cef3382ada454faacd43d1a55a735a"
+"checksum bcm2837 1.0.0 (git+https://github.com/gaotianyu1350/bcm2837)" = "<none>"
 "checksum bit_field 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "ed8765909f9009617974ab6b7d332625b320b33c326b1e9321382ef1999b5d56"
 "checksum bitflags 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "228047a76f468627ca71776ecdebd732a3423081fcf5125585bcd7c49886ce12"
 "checksum bitmap-allocator 0.1.0 (git+https://github.com/rcore-os/bitmap-allocator)" = "<none>"
@@ -683,6 +687,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum rand_core 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6fdeb83b075e8266dcc8762c22776f6877a63111121f5f8c7411e5be7eed4b"
 "checksum rand_core 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d0e7a549d590831370895ab7ba4ea0c1b6b011d106b5ff2da6eee112615e6dc0"
 "checksum raw-cpuid 6.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "30a9d219c32c9132f7be513c18be77c9881c7107d2ab5569d205a6a0f0e6dc7d"
+"checksum rcore-fs 0.1.0 (git+https://github.com/rcore-os/rcore-fs)" = "<none>"
+"checksum rcore-fs-sfs 0.1.0 (git+https://github.com/rcore-os/rcore-fs)" = "<none>"
 "checksum rcore-thread 0.1.0 (git+https://github.com/rcore-os/rcore-thread)" = "<none>"
 "checksum rdrand 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "678054eb77286b51581ba43620cc911abf02758c91f93f479767aed0f90458b2"
 "checksum register 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e10f31b6d2299e5620986ad9fcdd66463e125ad72af4f403f9aedf7592d5ccdb"
