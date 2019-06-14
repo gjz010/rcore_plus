@@ -1,9 +1,17 @@
-use super::mailbox;
-use crate::thread;
+extern crate alloc;
+extern crate bcm2837;
+extern crate log;
+extern crate rcore;
+extern crate rcore_fs;
+extern crate rcore_memory;
+extern crate spin;
 use bcm2837::emmc::*;
 use core::mem;
 use core::slice;
 use core::time::Duration;
+use log::*;
+use rcore::arch::board::mailbox;
+use rcore::thread;
 
 pub const BLOCK_SIZE: usize = 512;
 
@@ -94,7 +102,22 @@ macro_rules! sd_cmd {
         ($index) << 24
     };
 }
+/*
+macro_rules! info {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
+}
 
+macro_rules! warn {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
+}
+
+macro_rules! error {
+    ($fmt:expr) => {};
+    ($fmt:expr, $($arg:tt)*) => {};
+}
+*/
 const sd_commands: [u32; 64] = [
     sd_cmd!(INDEX, 0),
     sd_cmd!(RESERVED, 1),
@@ -324,7 +347,7 @@ pub struct EmmcCtl {
     card_removal: bool,
     base_clock: u32,
 }
-use crate::arch::board::timer::get_cycle;
+use rcore::arch::board::timer::get_cycle;
 
 fn usleep(cnt: u32) {
     let now = get_cycle();
@@ -334,32 +357,6 @@ fn usleep(cnt: u32) {
 fn byte_swap(b: u32) -> u32 {
     (b >> 24) | ((b & 0xFF0000) >> 8) | ((b & 0xFF00) << 8) | ((b & 0xFF) << 24)
 }
-
-/*
- * TODO:
- * ++ static void sd_power_off()
- * static uint32_t sd_get_base_clock_hz()
- * -- static int bcm_2708_power_off()
- * -- static int bcm_2708_power_on()
- * -- static int bcm_2708_power_cycle()
- * ++ static uint32_t sd_get_clock_divider(uint32_t base_clock, uint32_t target_rate)
- * ++ static int sd_switch_clock_rate(uint32_t base_clock, uint32_t target_rate)
- * ++ static int sd_reset_cmd()
- * ++ static int sd_reset_dat()
- * ++ static void sd_issue_command_int(struct emmc_block_dev *dev, uint32_t cmd_reg, uint32_t argument, useconds_t timeout)
- * static void sd_handle_card_interrupt(struct emmc_block_dev *dev)
- * static void sd_handle_interrupts(struct emmc_block_dev *dev)
- *
- *
- * ++ static void sd_issue_command(struct emmc_block_dev *dev, uint32_t command, uint32_t argument, useconds_t timeout)
- * ++ static int sd_ensure_data_mode(struct emmc_block_dev *edev)
- * -- static int sd_suitable_for_dma(void *buf)
- * -- static int sd_do_data_command(struct emmc_block_dev *edev, int is_write, uint8_t *buf, size_t buf_size, uint32_t block_no)
- * ++ int sd_card_init(struct block_device **dev)
- * ++ int sd_read(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t block_no)
- * ++ int sd_write(struct block_device *dev, uint8_t *buf, size_t buf_size, uint32_t block_no)
- * Other Constants
- */
 
 const MAX_WAIT_US: u32 = 1000000;
 const MAX_WAIT_TIMES: u32 = MAX_WAIT_US / 1000;
@@ -1423,167 +1420,15 @@ impl EmmcCtl {
     }
 }
 
-use crate::fs::mbr::MBRPartitionTable;
-use crate::fs::vfs::INodeContainer;
-use crate::lkm::device::{DeviceFileProvider, DeviceHandle, OverlaidINode};
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::any::Any;
+use rcore::fs::mbr::MBRPartitionTable;
+use rcore::fs::vfs::INodeContainer;
+use rcore::lkm::device::{DeviceFileProvider, DeviceHandle, OverlaidINode};
 use rcore_fs::vfs::{FsError, PollStatus};
 use rcore_memory::memory_set::handler::MemoryHandler;
 use spin::Mutex;
-lazy_static! {
-    pub static ref EMMC_CTL: Mutex<EmmcCtl> = Mutex::new(EmmcCtl::new());
-}
-
-fn demo() {
-    // print out the first section of the sd_card.
-    let section: [u8; 512] = [0; 512];
-    let buf = unsafe { slice::from_raw_parts_mut(section.as_ptr() as *mut u32, 512 / 4) };
-    println!("Trying to fetch the first section of the SD card.");
-    if !EMMC_CTL.lock().read(0, 1, buf).is_ok() {
-        error!("Failed in fetching.");
-        return;
-    }
-    println!("Content:");
-    for i in 0..32 {
-        for j in 0..16 {
-            print!("{:02X} ", section[i * 16 + j]);
-        }
-        println!("");
-    }
-    println!("");
-    if section[510] != 0x55 || section[511] != 0xAA {
-        println!("The first section is not an MBR section!");
-        println!("Maybe you are working on qemu using raw image.");
-        println!("Change the -sd argument to raspibian.img.");
-        return;
-    }
-    let mut start_pos = 446; // start position of the partion table
-    for entry in 0..4 {
-        print!("Partion entry #{}: ", entry);
-        let partion_type = section[start_pos + 0x4];
-        fn partion_type_map(partion_type: u8) -> &'static str {
-            match partion_type {
-                0x00 => "Empty",
-                0x0c => "FAT32",
-                0x83 => "Linux",
-                0x82 => "Swap",
-                _ => "Not supported",
-            }
-        }
-        print!("{:^14}", partion_type_map(partion_type));
-        if partion_type != 0x00 {
-            let start_section: u32 = (section[start_pos + 0x8] as u32)
-                | (section[start_pos + 0x9] as u32) << 8
-                | (section[start_pos + 0xa] as u32) << 16
-                | (section[start_pos + 0xb] as u32) << 24;
-            let total_section: u32 = (section[start_pos + 0xc] as u32)
-                | (section[start_pos + 0xd] as u32) << 8
-                | (section[start_pos + 0xe] as u32) << 16
-                | (section[start_pos + 0xf] as u32) << 24;
-            print!(
-                " start section no. = {}, a total of {} sections in use.",
-                start_section, total_section
-            );
-        }
-        println!("");
-        start_pos += 16;
-    }
-}
-
-fn demo_write() {
-    let section: [u8; 512] = [0; 512];
-    let mut deadbeef: [u8; 512] = [0; 512];
-    println!("Trying to fetch the second section of the SD card.");
-    if !EMMC_CTL
-        .lock()
-        .read(1, 1, unsafe {
-            slice::from_raw_parts_mut(section.as_ptr() as *mut u32, 512 / 4)
-        })
-        .is_ok()
-    {
-        error!("Failed in fetching.");
-        return;
-    }
-    println!("Content:");
-    for i in 0..32 {
-        for j in 0..16 {
-            print!("{:02X} ", section[i * 16 + j]);
-        }
-        println!("");
-    }
-    println!("");
-
-    for i in 0..512 / 4 {
-        deadbeef[i * 4 + 0] = 0xDE;
-        deadbeef[i * 4 + 1] = 0xAD;
-        deadbeef[i * 4 + 2] = 0xBE;
-        deadbeef[i * 4 + 3] = 0xEF;
-    }
-
-    if !EMMC_CTL
-        .lock()
-        .write(1, 1, unsafe {
-            slice::from_raw_parts(deadbeef.as_ptr() as *mut u32, 512 / 4)
-        })
-        .is_ok()
-    {
-        error!("Failed in writing.");
-        return;
-    }
-    if !EMMC_CTL
-        .lock()
-        .read(1, 1, unsafe {
-            slice::from_raw_parts_mut(deadbeef.as_ptr() as *mut u32, 512 / 4)
-        })
-        .is_ok()
-    {
-        error!("Failed in checking.");
-        return;
-    }
-    println!("Re-fetched content:");
-    for i in 0..32 {
-        for j in 0..16 {
-            print!("{:02X} ", deadbeef[i * 16 + j]);
-        }
-        println!("");
-    }
-    println!("");
-    if !EMMC_CTL
-        .lock()
-        .write(1, 1, unsafe {
-            slice::from_raw_parts(section.as_ptr() as *mut u32, 512 / 4)
-        })
-        .is_ok()
-    {
-        error!("Failed in writing back.");
-        return;
-    }
-    for i in 0..512 / 4 {
-        if deadbeef[i * 4 + 0] != 0xDE
-            || deadbeef[i * 4 + 1] != 0xAD
-            || deadbeef[i * 4 + 2] != 0xBE
-            || deadbeef[i * 4 + 3] != 0xEF
-        {
-            error!("Re-fetched content is wrong!");
-            return;
-        }
-    }
-    println!("Passed write() check.");
-}
-
-pub fn init() {
-    debug!("Initializing EmmcCtl...");
-    if EMMC_CTL.lock().init() == 0 {
-        debug!("EmmcCtl successfully initialized.");
-        demo();
-        //demo_write();
-        info!("emmc: init end");
-    } else {
-        info!("emmc: init failed");
-    }
-}
 
 pub struct EmmcDeviceHandle(Mutex<EmmcCtl>);
 pub struct EmmcDriver(Arc<DeviceHandle>);
@@ -1602,7 +1447,7 @@ impl EmmcDriver {
         // Read MBR partitions
         let mbr_driver = MBRPartitionTable::new(driver);
         // Install into cdevmanager.
-        let mut cdev = crate::lkm::device::CDevManager::get().write();
+        let mut cdev = rcore::lkm::device::CDevManager::get().write();
         cdev.registerDevice(179, Box::new(mbr_driver));
     }
 }
