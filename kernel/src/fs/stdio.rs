@@ -14,7 +14,6 @@ use crate::sync::Condvar;
 use crate::sync::SpinNoIrqLock as Mutex;
 
 use bcm2837::gpio;
-use bcm2837::pwm_sound_device;
 use bcm2837::pwm;
 use bcm2837::dma;
 use bcm2837::timer;
@@ -244,8 +243,8 @@ impl INode for Dsp {
             while true {
                 for i in 0..buflen {
                     let u32_data = (buf_lock[i] as u32) << 4;
-                    pwm_output.writeFIFO(u32_data);
-                    pwm_output.writeFIFO(u32_data);
+                    pwm_output.write_fifo(u32_data);
+                    pwm_output.write_fifo(u32_data);
                 }
             }
             print!("finish pwm output: {}\n", buflen);
