@@ -1356,6 +1356,7 @@ impl EmmcCtl {
         if !self.card_supports_sdhc {
             block_no *= 512;
         }
+        info!("Star writing block {} {} {}", block_no, count, &buf as *const _ as usize);
         //assert_eq!(count * self.block_size, buf.len());
         self.blocks_to_transfer = count as u32;
         let mut command = 0;
@@ -1368,6 +1369,7 @@ impl EmmcCtl {
         for retry in 0..3 {
             {
                 // send command
+                info!("Retries {}", retry);
                 self.last_cmd = command;
                 if self.sd_issue_command_int_pre(sd_commands[command as usize], block_no, 500000) {
                     let mut wr_irpt = (1 << 4);
@@ -1403,8 +1405,11 @@ impl EmmcCtl {
                     }
                 }
                 if self.last_cmd_success {
+                    info!("Success!");
                     return Ok(());
                 }
+                info!("Failed! re-init the card now.");
+                self.sd_card_init();
             }
         }
         self.card_rca = 0;

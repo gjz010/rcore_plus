@@ -7,3 +7,4 @@ build = "build.rs"
 
 [dependencies]
 log = "0.4"
+bcm2837 = { git = "https://github.com/gaotianyu1350/bcm2837", version = "1.0.0" }

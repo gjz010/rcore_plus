@@ -320,7 +320,18 @@ impl Syscall<'_> {
 
         let metadata = ic.inode.metadata()?;
         let file = if metadata.type_ == FileType::CharDevice {
-            panic!("Device file not supported!");
+            let major = crate::lkm::device::dev_major(metadata.rdev as u64) as usize;
+            let minor = crate::lkm::device::dev_minor(metadata.rdev as u64) as usize;
+            info!("get cdev {} {}", major, minor);
+            let cdev = crate::lkm::device::CDevManager::get().read();
+            let new_inode = cdev
+                .openINode(&ic.inode, major, minor)
+                .ok_or(FsError::NoDevice)?;
+            let new_ic=Arc::new(INodeContainer{
+                inode: Arc::new(new_inode),
+                vfs: Arc::clone(&ic.vfs)
+            });
+            FileLike::File(FileHandle::new(new_ic, flags.to_options()))
         } else {
             FileLike::File(FileHandle::new(ic, flags.to_options()))
         };

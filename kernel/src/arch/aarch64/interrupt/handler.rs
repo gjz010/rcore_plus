@@ -6,6 +6,8 @@ use crate::arch::board::irq::handle_irq;
 
 use aarch64::regs::*;
 use log::*;
+use aarch64::asm::{tlb_invalidate_all, tlb_invalidate};
+use aarch64::VirtAddr;
 
 global_asm!(include_str!("trap.S"));
 global_asm!(include_str!("vector.S"));
@@ -53,7 +55,7 @@ pub extern "C" fn rust_trap(info: Info, esr: u32, tf: &mut TrapFrame) {
                 Syndrome::DataAbort { kind, level: _ }
                 | Syndrome::InstructionAbort { kind, level: _ } => match kind {
                     Fault::Translation | Fault::AccessFlag | Fault::Permission => {
-                        handle_page_fault(tf)
+                        handle_page_fault(tf, esr)
                     }
                     _ => crate::trap::error(tf),
                 },
@@ -92,10 +94,15 @@ fn handle_syscall(num: u16, tf: &mut TrapFrame) {
     tf.x0 = ret as usize;
 }
 
-fn handle_page_fault(tf: &mut TrapFrame) {
+fn handle_page_fault(tf: &mut TrapFrame, esr: u32) {
     let addr = FAR_EL1.get() as usize;
+    let syndrome = Syndrome::from(esr);
+    error!("ESR: {:#x?}, Syndrome: {:?}", esr, syndrome);
+    error!("\nEXCEPTION: Page Fault @ {:#x}", addr);
     if !crate::memory::handle_page_fault(addr) {
         error!("\nEXCEPTION: Page Fault @ {:#x}", addr);
-        crate::trap::error(tf);
+        error!("{:#x?}", tf);
+        tlb_invalidate(VirtAddr::new(addr as u64));
+        //crate::trap::error(tf);
     }
 }

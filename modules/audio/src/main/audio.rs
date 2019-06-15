@@ -1,11 +1,11 @@
 extern crate alloc;
-extern crate bcm2837;
 extern crate log;
 extern crate rcore;
 extern crate rcore_fs;
 extern crate rcore_memory;
 extern crate spin;
 extern crate isomorphic_drivers;
+extern crate bcm2837;
 use bcm2837::{pwm, dma};
 use core::mem;
 use core::slice;

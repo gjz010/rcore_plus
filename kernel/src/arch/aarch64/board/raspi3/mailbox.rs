@@ -187,13 +187,17 @@ macro_rules! send_request {
 
         let start = &req as *const _ as u32;
         let end = start + req.0.buf_size;
+        let start64= &req as *const _ as usize;
+        let end64=start64 + (req.0.buf_size as usize);
         {
             // flush data cache around mailbox accesses
             let mut mbox = MAILBOX.lock();
-            asm::flush_dcache_range(start as usize, end as usize);
+            info!("Flush dcache range from {:x} to {:x}", start, end);
+            asm::flush_dcache_range(start64, end64);
             mbox.write(MailboxChannel::Property, start);
             mbox.read(MailboxChannel::Property);
-            asm::flush_dcache_range(start as usize, end as usize);
+            info!("Flush dcache range from {:x} to {:x}", start, end);
+            asm::flush_dcache_range(start64, end64);
         }
 
         match req.0.req_resp_code {

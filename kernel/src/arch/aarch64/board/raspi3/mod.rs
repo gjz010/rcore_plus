@@ -31,6 +31,10 @@ pub fn init_driver() {
 pub fn emmc_stub(){
     use bcm2837;
     bcm2837::emmc::Emmc::new();
+    let p1=bcm2837::dma::DMA::start as usize;
+    let p1=bcm2837::dma::DMA::stop as usize;
+    let p1=bcm2837::dma::DMA::new as usize;
+
 }
 
 pub fn audio_stub(){
