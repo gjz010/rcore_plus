@@ -33,6 +33,16 @@ pub fn emmc_stub(){
     bcm2837::emmc::Emmc::new();
 }
 
+pub fn audio_stub(){
+    use bcm2837;
+    let mut dumb_pwm = bcm2837::pwm::PWMOutput::new();
+    let mut dumb_dma = bcm2837::dma::DMA::new(0, 0, 0, 0, 0, 0);
+    dumb_dma.start();
+    dumb_dma.stop();
+    dumb_pwm.dma_start();
+    dumb_pwm.start(0, false);
+    dumb_pwm.stop();
+}
 /// Returns the (start address, end address) of the physical memory on this
 /// system if it can be determined. If it cannot, `None` is returned.
 ///

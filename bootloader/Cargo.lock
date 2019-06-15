@@ -16,7 +16,7 @@ dependencies = [
 [[package]]
 name = "bcm2837"
 version = "1.0.0"
-source = "git+https://github.com/rcore-os/bcm2837#b29a8db5504b7eaa6f8adf2c3ff916d1ffd15194"
+source = "git+https://github.com/rcore-os/bcm2837#bf1e4ec63c52827bc199399f214f39a4fdcbe228"
 dependencies = [
  "volatile 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

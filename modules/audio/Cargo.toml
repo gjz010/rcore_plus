@@ -1,0 +1,9 @@
+[package]
+name = "audio"
+version = "0.1.0"
+authors = ["gaotianyu1350 <gaotianyu1350@126.com>", "gjz010 <gjz010944@gmail.com>"]
+edition = "2018"
+build = "build.rs"
+
+[dependencies]
+log = "0.4"

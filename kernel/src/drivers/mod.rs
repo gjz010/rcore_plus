@@ -20,7 +20,7 @@ mod gpu;
 mod input;
 #[allow(dead_code)]
 pub mod net;
-mod provider;
+pub mod provider;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum DeviceType {
